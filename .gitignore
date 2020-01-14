@@ -1,0 +1,11 @@
+
+# ignore the visual studio solution specific data
+Tangra/.vs
+
+# the Build folder is where all the .exes and intermediates
+# should be output, so ignore it
+Tangra/Build
+
+# precompiled shaders are treated as assets, but for now they are
+# build together with the rest of the solution, so ignore them 
+Tangra/Assets/ShaderCSOs
