@@ -28,7 +28,7 @@ public:
     template<typename T>
     void SetRoot32BitConstant(UINT a_RootIndex, T& a_Data, UINT a_OffsetInData = 0);
 
-    void Draw(UINT a_VertexCount, UINT a_InstanceCount = 0, UINT a_StartVertexLoc = 0, UINT a_StartInstanceLoc = 0);
+    void Draw(UINT a_VertexCount, UINT a_InstanceCount = 1, UINT a_StartVertexLoc = 0, UINT a_StartInstanceLoc = 0);
 
     Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> GetCommandListPtr();
 

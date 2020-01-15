@@ -45,9 +45,6 @@
     <ClCompile Include="PipelineState.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="DirtyEntryPoint.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="d3dx12.h">

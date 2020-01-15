@@ -36,10 +36,6 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Application.cpp" />
-    <ClCompile Include="DirtyEntryPoint.cpp">
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
-    </ClCompile>
     <ClCompile Include="GraphicsCommandList.cpp" />
     <ClCompile Include="CommandQueue.cpp" />
     <ClCompile Include="Device.cpp" />

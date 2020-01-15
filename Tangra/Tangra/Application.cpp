@@ -165,7 +165,7 @@ void Application::Initialize(InitInfo& a_InitInfo)
 
 
     std::cout << "Creating triangle vertex buffer" << std::endl;
-    std::vector<DirectX::XMFLOAT3> vertices = { DirectX::XMFLOAT3(1.f, 1.f, 0.2f),DirectX::XMFLOAT3(0.f, 0.0f, 0.2f), DirectX::XMFLOAT3(0.5f, 0.5f, 0.2f) };
+    std::vector<DirectX::XMFLOAT3> vertices = { DirectX::XMFLOAT3(0.5f, 0.5f, 0.5f),DirectX::XMFLOAT3(-0.5f, -0.5f, 0.5f), DirectX::XMFLOAT3(-0.5f, 0.5f, 0.5f) };
     //std::reverse(vertices.begin(), vertices.end());
     m_Buffer = std::make_unique<VertexBuffer>(vertices, *commandList);
 
@@ -428,14 +428,15 @@ void Application::Render()
     commandList->SetRenderTargets(std::vector<D3D12_CPU_DESCRIPTOR_HANDLE>{m_SwapChain->GetCurrentRTVHandle()}, TRUE, m_SwapChain->GetDSVHandle());
     commandList->SetVertexBuffer(*m_Buffer);
 
-    DirectX::XMMATRIX mat;
+    DirectX::SimpleMath::Matrix mat;
 
-    mat = DirectX::XMMatrixOrthographicLH(float(m_ScreenWidth), float(m_ScreenHeight), 0.00001f, 100000.0f);
     
+    mat = DirectX::XMMatrixOrthographicLH(float(m_ScreenWidth), float(m_ScreenHeight), 0.00001f, 100000.0f);
     mat = DirectX::XMMatrixMultiply(mat, DirectX::XMMatrixScaling(400.0f, 400.0f, 400.0f));
     
 
     commandList->SetRoot32BitConstant(0, mat);
+    //commandList->GetCommandListPtr()->SetGraphicsRoot32BitConstants(0, sizeof(mat) / 4, &mat, 0);
     
     commandList->Draw(m_Buffer->GetNumVertices());
 
