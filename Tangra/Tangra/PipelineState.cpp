@@ -1,6 +1,7 @@
 #include "PipelineState.h"
 #include "Helpers.h"
 #include "Application.h"
+#include "Device.h"
 #include <d3dcompiler.h>
 
 using namespace Microsoft::WRL;

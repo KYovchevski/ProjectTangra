@@ -7,10 +7,10 @@
 #include "Application.h"
 #include "Device.h"
 #include "GraphicsCommandList.h"
-
-class T{};
+#include "RenderResource.h"
 
 class VertexBuffer
+    : public RenderResource
 {
 public:
 
@@ -24,8 +24,6 @@ public:
     D3D12_VERTEX_BUFFER_VIEW GetVertexBufferView();
 
 private:
-    Microsoft::WRL::ComPtr<ID3D12Resource> m_DefaultBuffer;
-    Microsoft::WRL::ComPtr<ID3D12Resource> m_UploadBuffer;
 
     D3D12_VERTEX_BUFFER_VIEW m_VertexBufferView;
     UINT m_NumVertices;

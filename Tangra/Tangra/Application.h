@@ -1,5 +1,4 @@
 #pragma once
-#include "VertexBuffer.h"
 #include <memory>
 
 #define WIN32_LEAN_AND_MEAN
@@ -14,6 +13,7 @@ class CommandQueue;
 class SwapChain;
 class VertexBuffer;
 class PipelineState;
+class IndexBuffer;
 
 LRESULT CALLBACK WindowsCallback(HWND a_HWND, UINT a_Message, WPARAM a_WParam, LPARAM a_LParam);
 
@@ -89,15 +89,9 @@ private:
     std::unique_ptr<CommandQueue> m_DirectCommandQueue;
 
     std::unique_ptr<VertexBuffer> m_Buffer;
+    std::unique_ptr<IndexBuffer> m_IndexBuffer;
 
     std::unique_ptr<PipelineState> m_MainPSO;
-
-    Microsoft::WRL::ComPtr<ID3D12RootSignature> m_RootSignature;
-    Microsoft::WRL::ComPtr<ID3D12PipelineState> m_PSO;
-
-    Microsoft::WRL::ComPtr<ID3D12Resource> m_VertexBuffer, m_IntermediateResource;
-
-    D3D12_VERTEX_BUFFER_VIEW m_BufferView;
 
     RECT m_ScissorRect;
     D3D12_VIEWPORT m_Viewport;

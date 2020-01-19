@@ -5,6 +5,8 @@
 #include "Device.h"
 #include "SwapChain.h"
 #include "PipelineState.h"
+#include "VertexBuffer.h"
+#include "IndexBuffer.h"
 
 #include "Helpers.h"
 
@@ -166,8 +168,11 @@ void Application::Initialize(InitInfo& a_InitInfo)
 
     std::cout << "Creating triangle vertex buffer" << std::endl;
     std::vector<DirectX::XMFLOAT3> vertices = { DirectX::XMFLOAT3(0.5f, 0.5f, 0.5f),DirectX::XMFLOAT3(-0.5f, -0.5f, 0.5f), DirectX::XMFLOAT3(-0.5f, 0.5f, 0.5f) };
+    std::vector<UINT> indices = { 0, 1, 2 };
     //std::reverse(vertices.begin(), vertices.end());
     m_Buffer = std::make_unique<VertexBuffer>(vertices, *commandList);
+
+    m_IndexBuffer = std::make_unique<IndexBuffer>(indices, *commandList);
 
     std::cout << "Creating pipeline state object" << std::endl;
     LoadPSOs();
@@ -185,8 +190,9 @@ void Application::Initialize(InitInfo& a_InitInfo)
     m_ScissorRect.bottom = m_ScreenHeight;
     m_ScissorRect.right = m_ScreenWidth;
 
-    m_DirectCommandQueue->ExecuteCommandList(*commandList);
 
+
+    m_DirectCommandQueue->ExecuteCommandList(*commandList);
     m_DirectCommandQueue->Flush();
 
     std::cout << "Initialization completed." << std::endl;
@@ -211,7 +217,6 @@ uint32_t Application::GetScreenHeight() const
 {
     return m_ScreenHeight;
 }
-
 
 HWND Application::CreateWindowInstance(Application::WindowInfo& a_WindowInfo)
 {
@@ -274,7 +279,6 @@ Application::Application()
     m_ScreenHeight = 0;
     m_ScreenWidth = 0;
     m_HWND = NULL;
-    m_Buffer = std::make_unique<VertexBuffer>();
 }
 
 void Application::CreateDebugConsole()
@@ -427,6 +431,7 @@ void Application::Render()
     commandList->SetScissorRect(m_ScissorRect);
     commandList->SetRenderTargets(std::vector<D3D12_CPU_DESCRIPTOR_HANDLE>{m_SwapChain->GetCurrentRTVHandle()}, TRUE, m_SwapChain->GetDSVHandle());
     commandList->SetVertexBuffer(*m_Buffer);
+    commandList->SetIndexBuffer(*m_IndexBuffer);
 
     DirectX::SimpleMath::Matrix mat;
 
@@ -438,7 +443,7 @@ void Application::Render()
     commandList->SetRoot32BitConstant(0, mat);
     //commandList->GetCommandListPtr()->SetGraphicsRoot32BitConstants(0, sizeof(mat) / 4, &mat, 0);
     
-    commandList->Draw(m_Buffer->GetNumVertices());
+    commandList->DrawIndexed(m_IndexBuffer->GetNumIndices());
 
     m_SwapChain->Present(*commandList);
 

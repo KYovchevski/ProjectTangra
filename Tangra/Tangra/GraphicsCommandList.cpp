@@ -4,6 +4,8 @@
 #include "Application.h"
 #include "Device.h"
 #include "PipelineState.h"
+#include "VertexBuffer.h"
+#include "IndexBuffer.h"
 
 GraphicsCommandList::GraphicsCommandList(D3D12_COMMAND_LIST_TYPE a_Type)
     : m_Type(a_Type)
@@ -53,6 +55,12 @@ void GraphicsCommandList::SetVertexBuffers(std::vector<VertexBuffer> a_Buffers, 
     m_D3D12CommandList->IASetVertexBuffers(a_StartSlot, static_cast<UINT>(bufferViews.size()), &bufferViews[0]);
 }
 
+void GraphicsCommandList::SetIndexBuffer(IndexBuffer& a_IndexBuffer)
+{
+    auto bufferView = a_IndexBuffer.GetIndexBufferView();
+    m_D3D12CommandList->IASetIndexBuffer(&bufferView);
+}
+
 void GraphicsCommandList::SetPipelineState(PipelineState& a_NewState)
 {
     m_D3D12CommandList->SetPipelineState(a_NewState.GetPSO().Get());
@@ -72,6 +80,12 @@ void GraphicsCommandList::SetScissorRect(RECT a_Rect)
 void GraphicsCommandList::Draw(UINT a_VertexCount, UINT a_InstanceCount, UINT a_StartVertexLoc, UINT a_StartInstanceLoc)
 {
     m_D3D12CommandList->DrawInstanced(a_VertexCount, a_InstanceCount, a_StartVertexLoc, a_StartInstanceLoc);
+}
+
+void GraphicsCommandList::DrawIndexed(UINT a_IndexCount, UINT a_InstanceCount, UINT a_StarIndexLoc, UINT a_BaseVertexLoc,
+    UINT a_StartInstanceLoc)
+{
+    m_D3D12CommandList->DrawIndexedInstanced(a_IndexCount, a_InstanceCount, a_StarIndexLoc, a_BaseVertexLoc, a_StartInstanceLoc);
 }
 
 Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> GraphicsCommandList::GetCommandListPtr()

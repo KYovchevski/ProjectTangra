@@ -4,6 +4,7 @@
 #include "d3d12.h"
 #include <vector>
 
+class IndexBuffer;
 class VertexBuffer;
 class PipelineState;
 
@@ -21,6 +22,8 @@ public:
     void SetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY a_PrimitiveTopology);
     void SetVertexBuffer(VertexBuffer& a_Buffer, UINT a_Slot = 0);
     void SetVertexBuffers(std::vector<VertexBuffer> a_Buffers, UINT a_StartSlot = 0);
+    void SetIndexBuffer(IndexBuffer& a_IndexBuffer);
+
     void SetPipelineState(PipelineState& a_NewState);
     void SetViewport(D3D12_VIEWPORT& a_Viewport);
     void SetScissorRect(RECT a_Rect);
@@ -29,6 +32,7 @@ public:
     void SetRoot32BitConstant(UINT a_RootIndex, T& a_Data, UINT a_OffsetInData = 0);
 
     void Draw(UINT a_VertexCount, UINT a_InstanceCount = 1, UINT a_StartVertexLoc = 0, UINT a_StartInstanceLoc = 0);
+    void DrawIndexed(UINT a_IndexCount, UINT a_InstanceCount = 1, UINT a_StarIndexLoc = 0, UINT a_BaseVertexLoc = 0, UINT a_StartInstanceLoc = 0);
 
     Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> GetCommandListPtr();
 
@@ -38,6 +42,7 @@ private:
 
     const D3D12_COMMAND_LIST_TYPE m_Type;
 };
+
 
 template <typename T>
 void GraphicsCommandList::SetRoot32BitConstant(UINT a_RootIndex, T& a_Data, UINT a_OffsetInData)
