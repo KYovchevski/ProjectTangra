@@ -6,7 +6,16 @@ struct Matrices
 
 ConstantBuffer<Matrices> MatCB : register(b0, space0);
 
-float4 main( float3 pos : POSITION ) : SV_POSITION
+struct VS_OUT
 {
-    return mul(MatCB.MVP, float4(pos, 1));
+    float2 TexCoords : TEXCOORD;
+    float4 Position : SV_POSITION;
+};
+
+VS_OUT main( float3 pos : POSITION, float2 tex : TEXCOORD ) 
+{
+    VS_OUT vout;
+    vout.Position = mul(MatCB.MVP, float4(pos, 1));
+    vout.TexCoords = tex;
+    return vout;
 }

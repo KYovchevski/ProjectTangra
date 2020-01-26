@@ -4,7 +4,8 @@
 
 using namespace Microsoft::WRL;
 
-Device::Device(Microsoft::WRL::ComPtr<IDXGIAdapter4> a_GraphicsAdapter)
+Device::Device(Microsoft::WRL::ComPtr<IDXGIAdapter4> a_GraphicsAdapter) :
+    m_NumSRVHeapEntries(0)
 {
 #ifdef _DEBUG
     // if the application is ran in debug, enable the debug layer
@@ -32,11 +33,48 @@ Device::Device(Microsoft::WRL::ComPtr<IDXGIAdapter4> a_GraphicsAdapter)
     m_CBVDescriptorSize = m_D3D12Device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
     m_RTVDescriptorSize = m_D3D12Device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
     m_DSVDescriptorSize = m_D3D12Device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_DSV);
+
+
+    m_SRVHeapCapacity = 128;
+
+    D3D12_DESCRIPTOR_HEAP_DESC heapDesc = {};
+    heapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
+    heapDesc.NodeMask = 0;
+    heapDesc.NumDescriptors = m_SRVHeapCapacity;
+    heapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
+
+    ThrowIfFailed(m_D3D12Device->CreateDescriptorHeap(&heapDesc, IID_PPV_ARGS(&m_SRVHeap)));
+}
+
+CD3DX12_GPU_DESCRIPTOR_HANDLE Device::AddSRV(ComPtr<ID3D12Resource> a_SRVResource)
+{
+    CD3DX12_CPU_DESCRIPTOR_HANDLE rHandle = CD3DX12_CPU_DESCRIPTOR_HANDLE(m_SRVHeap->GetCPUDescriptorHandleForHeapStart());
+
+    if (m_NumSRVHeapEntries == m_SRVHeapCapacity)
+    {
+        std::cout << "ERROR: SRV Descriptor heap full, cannot allocated texture" << std::endl;
+        abort();
+    }
+
+    rHandle.Offset(m_NumSRVHeapEntries, m_CBVDescriptorSize);
+
+    m_D3D12Device->CreateShaderResourceView(a_SRVResource.Get(), nullptr, rHandle);
+    
+
+    auto gpuHandle = CD3DX12_GPU_DESCRIPTOR_HANDLE(m_SRVHeap->GetGPUDescriptorHandleForHeapStart()).Offset(m_NumSRVHeapEntries, m_CBVDescriptorSize);
+
+    ++m_NumSRVHeapEntries;
+    return gpuHandle;
 }
 
 Microsoft::WRL::ComPtr<ID3D12Device2> Device::GetDeviceObject()
 {
     return m_D3D12Device;
+}
+
+Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> Device::GetSRVHeap()
+{
+    return m_SRVHeap;
 }
 
 UINT Device::GetDescriptorHandleSize(D3D12_DESCRIPTOR_HEAP_TYPE a_Type) const

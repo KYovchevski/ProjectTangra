@@ -42,6 +42,7 @@
     <ClInclude Include="IndexBuffer.h" />
     <ClInclude Include="PipelineState.h" />
     <ClInclude Include="RenderResource.h" />
+    <ClInclude Include="ServiceLocator.h" />
     <ClInclude Include="SimpleMath.h" />
     <ClInclude Include="SwapChain.h" />
     <ClInclude Include="Texture.h" />

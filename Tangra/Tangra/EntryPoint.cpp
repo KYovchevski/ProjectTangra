@@ -1,6 +1,13 @@
 
 #include "Application.h"
 
+#include "DirectXTex.h"
+#include "filesystem"
+#include <iostream>
+
+using namespace DirectX;
+
+namespace fs = std::experimental::filesystem;
 int CALLBACK wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _In_ PWSTR lpCmdLine, _In_ int nCmdShow)
 {
     hPrevInstance;

@@ -7,6 +7,7 @@
 #include "PipelineState.h"
 #include "VertexBuffer.h"
 #include "IndexBuffer.h"
+#include "ServiceLocator.h"
 
 #include "Helpers.h"
 
@@ -22,6 +23,10 @@ namespace fs = std::experimental::filesystem;
 
 Application* Application::ms_Instance = nullptr;
 bool Application::ms_Initialized = false;
+
+ServiceLocator serviceLocator;
+
+
 
 using namespace Microsoft::WRL;
 
@@ -93,6 +98,8 @@ LRESULT Application::ProcessCallback(HWND a_HWND, UINT a_Message, WPARAM a_WPara
 
 void Application::Initialize(InitInfo& a_InitInfo)
 {
+    CoInitialize(NULL);
+
     // if requested allocate a console to output debug information to
     if (a_InitInfo.m_CreateDebugConsole)
     {
@@ -167,12 +174,28 @@ void Application::Initialize(InitInfo& a_InitInfo)
 
 
     std::cout << "Creating triangle vertex buffer" << std::endl;
-    std::vector<DirectX::XMFLOAT3> vertices = { DirectX::XMFLOAT3(0.5f, 0.5f, 0.5f),DirectX::XMFLOAT3(-0.5f, -0.5f, 0.5f), DirectX::XMFLOAT3(-0.5f, 0.5f, 0.5f) };
+
+    struct vertex
+    {
+        DirectX::XMFLOAT3 p;
+        DirectX::XMFLOAT2 t;
+    };
+
+    vertex v1, v2, v3;
+    v1 = vertex{ DirectX::XMFLOAT3(0.5f, 0.5f, 0.5f), DirectX::XMFLOAT2(0.0f, 0.0f) };
+    v2 = vertex{ DirectX::XMFLOAT3(-0.5f, -0.5f, 0.5f), DirectX::XMFLOAT2(1.0f, 1.0f) };
+    v3 = vertex{ DirectX::XMFLOAT3(-0.5f, 0.5f, 0.5f) , DirectX::XMFLOAT2(1.0f, 0.0f) };
+
+    std::vector<vertex> vertices = { v1, v2, v3 };
     std::vector<UINT> indices = { 0, 1, 2 };
     //std::reverse(vertices.begin(), vertices.end());
     m_Buffer = std::make_unique<VertexBuffer>(vertices, *commandList);
 
     m_IndexBuffer = std::make_unique<IndexBuffer>(indices, *commandList);
+
+    std::wstring path = L"Textures/debugTex.png";
+
+    m_Texture = std::make_unique<Texture>(path, *commandList);
 
     std::cout << "Creating pipeline state object" << std::endl;
     LoadPSOs();
@@ -384,11 +407,28 @@ void Application::LoadPSOs()
     initData.m_RootSignatureFlags = D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT |
         D3D12_ROOT_SIGNATURE_FLAG_DENY_HULL_SHADER_ROOT_ACCESS |
         D3D12_ROOT_SIGNATURE_FLAG_DENY_DOMAIN_SHADER_ROOT_ACCESS |
-        D3D12_ROOT_SIGNATURE_FLAG_DENY_GEOMETRY_SHADER_ROOT_ACCESS |
-        D3D12_ROOT_SIGNATURE_FLAG_DENY_PIXEL_SHADER_ROOT_ACCESS;
+        D3D12_ROOT_SIGNATURE_FLAG_DENY_GEOMETRY_SHADER_ROOT_ACCESS;
+
+    CD3DX12_DESCRIPTOR_RANGE descriptorRange(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 0);
+    descriptorRange.RegisterSpace = 1;
 
     initData.m_RootParameters.emplace_back();
     initData.m_RootParameters.back().InitAsConstants(sizeof(DirectX::XMMATRIX) / 4, 0, 0, D3D12_SHADER_VISIBILITY_VERTEX);
+    initData.m_RootParameters.emplace_back();
+    initData.m_RootParameters.back().InitAsDescriptorTable(1u, &descriptorRange, D3D12_SHADER_VISIBILITY_PIXEL);
+
+    initData.m_StaticSamplers.emplace_back();
+    initData.m_StaticSamplers.back().RegisterSpace = 1;
+    initData.m_StaticSamplers.back().ShaderRegister = 0;
+    initData.m_StaticSamplers.back().ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
+    initData.m_StaticSamplers.back().AddressU = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+    initData.m_StaticSamplers.back().AddressV = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+    initData.m_StaticSamplers.back().AddressW = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+    initData.m_StaticSamplers.back().ComparisonFunc = D3D12_COMPARISON_FUNC_ALWAYS;
+    initData.m_StaticSamplers.back().Filter = D3D12_FILTER_ANISOTROPIC;
+    initData.m_StaticSamplers.back().MinLOD = 0;
+    initData.m_StaticSamplers.back().MaxLOD = 0;
+
 
     D3D12_INPUT_ELEMENT_DESC* backElement = nullptr;
     initData.m_InputElements.emplace_back();
@@ -401,6 +441,18 @@ void Application::LoadPSOs()
     backElement->SemanticIndex = 0;
     backElement->InputSlotClass = D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA;
     backElement->SemanticName = "POSITION";
+    backElement->InstanceDataStepRate = 0;
+
+    initData.m_InputElements.emplace_back();
+    backElement = &initData.m_InputElements.back();
+
+    *backElement = {};
+    backElement->Format = DXGI_FORMAT_R32G32_FLOAT;
+    backElement->AlignedByteOffset = 3 * sizeof(float);
+    backElement->InputSlot = 0;
+    backElement->SemanticIndex = 0;
+    backElement->InputSlotClass = D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA;
+    backElement->SemanticName = "TEXCOORD";
     backElement->InstanceDataStepRate = 0;
 
 
@@ -424,6 +476,8 @@ void Application::Render()
     
     m_SwapChain->ClearBackBuffer(*commandList);
     m_SwapChain->ClearDSV(*commandList);
+
+    auto srvHeap = m_D3DDevice->GetSRVHeap().Get();
        
     commandList->SetPipelineState(*m_MainPSO);
     commandList->SetPrimitiveTopology(D3D10_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
@@ -432,6 +486,8 @@ void Application::Render()
     commandList->SetRenderTargets(std::vector<D3D12_CPU_DESCRIPTOR_HANDLE>{m_SwapChain->GetCurrentRTVHandle()}, TRUE, m_SwapChain->GetDSVHandle());
     commandList->SetVertexBuffer(*m_Buffer);
     commandList->SetIndexBuffer(*m_IndexBuffer);
+    commandList->GetCommandListPtr()->SetDescriptorHeaps(1, &srvHeap);
+    commandList->GetCommandListPtr()->SetGraphicsRootDescriptorTable(1, m_Texture->GetGPUDescriptorHandle());
 
     DirectX::SimpleMath::Matrix mat;
 

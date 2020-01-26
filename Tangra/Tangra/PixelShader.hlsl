@@ -1,4 +1,8 @@
-float4 main() : SV_TARGET
+Texture2D diffuseTex : register(t0, space1);
+sampler samp : register(s0, space1);
+
+
+float4 main(float2 texCoord : TEXCOORD) : SV_TARGET
 {
-	return float4(1.0f, 1.0f, 1.0f, 1.0f);
+    return diffuseTex.Sample(samp, texCoord);
 }

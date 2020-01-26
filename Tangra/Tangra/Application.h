@@ -6,6 +6,7 @@
 #include "wrl.h"
 #include "d3d12.h"
 #include "dxgi1_6.h"
+#include "Texture.h"
 
 
 class Device;
@@ -90,6 +91,7 @@ private:
 
     std::unique_ptr<VertexBuffer> m_Buffer;
     std::unique_ptr<IndexBuffer> m_IndexBuffer;
+    std::unique_ptr<Texture> m_Texture;
 
     std::unique_ptr<PipelineState> m_MainPSO;
 
