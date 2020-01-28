@@ -59,7 +59,7 @@ VertexBuffer::VertexBuffer(std::vector<T> a_Vertices, GraphicsCommandList& a_Com
     
     // transition the vertex buffer resource into a read state
     auto barrier = CD3DX12_RESOURCE_BARRIER::Transition(m_DefaultBuffer.Get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_GENERIC_READ);
-    a_CommandList.GetCommandListPtr()->ResourceBarrier(1, &barrier);
+    a_CommandList.ResourceBarrier(barrier);
 
     // create the vertex buffer view
     m_VertexBufferView.BufferLocation = m_DefaultBuffer->GetGPUVirtualAddress();

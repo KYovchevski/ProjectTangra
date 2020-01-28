@@ -74,7 +74,7 @@ IndexBuffer::IndexBuffer(std::vector<T> a_Indices, GraphicsCommandList& a_Comman
 
     auto barrier = CD3DX12_RESOURCE_BARRIER::Transition(m_DefaultBuffer.Get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_GENERIC_READ);
 
-    a_CommandList.GetCommandListPtr()->ResourceBarrier(1, &barrier);
+    a_CommandList.ResourceBarrier(barrier);
 
     m_IndexBufferView.Format = format;
     m_IndexBufferView.BufferLocation = m_DefaultBuffer->GetGPUVirtualAddress();

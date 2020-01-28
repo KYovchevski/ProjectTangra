@@ -25,7 +25,7 @@ public:
     void ClearBackBuffer(GraphicsCommandList& a_CommandList);
     void ClearDSV(GraphicsCommandList& a_CommandList);
 
-    void Present(GraphicsCommandList& a_CommandList);
+    void Present();
 
     D3D12_CPU_DESCRIPTOR_HANDLE GetCurrentRTVHandle();
     Microsoft::WRL::ComPtr<ID3D12Resource> GetCurrentBackbufferResource();

@@ -8,6 +8,14 @@
 #include "dxgi1_6.h"
 #include "Texture.h"
 
+#ifdef max
+#undef max
+#endif
+
+#ifdef min
+#undef min
+#endif
+
 
 class Device;
 class CommandQueue;

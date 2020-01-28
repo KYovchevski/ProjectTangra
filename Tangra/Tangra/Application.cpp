@@ -7,7 +7,6 @@
 #include "PipelineState.h"
 #include "VertexBuffer.h"
 #include "IndexBuffer.h"
-#include "ServiceLocator.h"
 
 #include "Helpers.h"
 
@@ -23,10 +22,6 @@ namespace fs = std::experimental::filesystem;
 
 Application* Application::ms_Instance = nullptr;
 bool Application::ms_Initialized = false;
-
-ServiceLocator serviceLocator;
-
-
 
 using namespace Microsoft::WRL;
 
@@ -91,9 +86,11 @@ LRESULT Application::ProcessCallback(HWND a_HWND, UINT a_Message, WPARAM a_WPara
     {
     case WM_PAINT:
         Render();
+        break;
     default:
         return ::DefWindowProcW(a_HWND, a_Message, a_WParam, a_LParam);
     }
+    return 0;
 }
 
 void Application::Initialize(InitInfo& a_InitInfo)
@@ -472,7 +469,6 @@ void Application::Render()
 
     // for simplicity, use a single command list for clearing, drawing and presenting
     auto commandList = m_DirectCommandQueue->GetCommandList();
-    commandList->Reset();
     
     m_SwapChain->ClearBackBuffer(*commandList);
     m_SwapChain->ClearDSV(*commandList);
@@ -486,14 +482,23 @@ void Application::Render()
     commandList->SetRenderTargets(std::vector<D3D12_CPU_DESCRIPTOR_HANDLE>{m_SwapChain->GetCurrentRTVHandle()}, TRUE, m_SwapChain->GetDSVHandle());
     commandList->SetVertexBuffer(*m_Buffer);
     commandList->SetIndexBuffer(*m_IndexBuffer);
-    commandList->GetCommandListPtr()->SetDescriptorHeaps(1, &srvHeap);
-    commandList->GetCommandListPtr()->SetGraphicsRootDescriptorTable(1, m_Texture->GetGPUDescriptorHandle());
+    commandList->SetDescriptorHeap(srvHeap);
+    commandList->SetTexture(1, *m_Texture);
 
-    DirectX::SimpleMath::Matrix mat;
+    namespace sm = DirectX::SimpleMath;
 
-    
-    mat = DirectX::XMMatrixOrthographicLH(float(m_ScreenWidth), float(m_ScreenHeight), 0.00001f, 100000.0f);
-    mat = DirectX::XMMatrixMultiply(mat, DirectX::XMMatrixScaling(400.0f, 400.0f, 400.0f));
+    sm::Matrix mat;
+
+    static float f = 0.0f;
+    f += 3.0f;
+
+    mat = sm::Matrix::Identity;
+
+    mat *= sm::Matrix::CreateOrthographic(float(m_ScreenWidth), float(m_ScreenHeight), 0.00001f, 100000.0f);
+    //mat *= sm::Matrix::CreateTranslation(sm::Vector3(0.0f, 0.0f, 0.0f));
+    mat *= sm::Matrix::CreateRotationZ(DirectX::XMConvertToRadians(f));
+    //mat *= sm::Matrix::CreateRotationY(180.0f);
+    mat *= sm::Matrix::CreateScale(sm::Vector3(400.0f));
     
 
     commandList->SetRoot32BitConstant(0, mat);
@@ -501,7 +506,9 @@ void Application::Render()
     
     commandList->DrawIndexed(m_IndexBuffer->GetNumIndices());
 
-    m_SwapChain->Present(*commandList);
+    m_DirectCommandQueue->ExecuteCommandList(*commandList);
+
+    m_SwapChain->Present();
 
 }
 

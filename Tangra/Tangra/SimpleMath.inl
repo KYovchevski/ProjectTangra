@@ -2552,7 +2552,7 @@ inline Matrix Matrix::CreateOrthographic(float width, float height, float zNearP
 {
     using namespace DirectX;
     Matrix R;
-    XMStoreFloat4x4(&R, XMMatrixOrthographicRH(width, height, zNearPlane, zFarPlane));
+    XMStoreFloat4x4(&R, XMMatrixOrthographicLH(width, height, zNearPlane, zFarPlane));
     return R;
 }
 

@@ -3,6 +3,7 @@
 #include "Application.h"
 #include "Device.h"
 #include "GraphicsCommandList.h"
+#include <iostream>
 
 using namespace Microsoft::WRL;
 
@@ -18,8 +19,6 @@ CommandQueue::CommandQueue(D3D12_COMMAND_LIST_TYPE a_Type, D3D12_COMMAND_QUEUE_F
 
     ThrowIfFailed(device->CreateCommandQueue(&directCommandQueueDesc, IID_PPV_ARGS(&m_D3D12CommandQueue)));
 
-    m_CommandList = std::make_unique<GraphicsCommandList>(a_Type);
-
     m_FenceValue = 0;
     ThrowIfFailed(device->CreateFence(m_FenceValue, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&m_D3D12Fence)));
 }
@@ -31,7 +30,34 @@ Microsoft::WRL::ComPtr<ID3D12CommandQueue> CommandQueue::GetCommandQueueObject()
 
 GraphicsCommandList* CommandQueue::GetCommandList()
 {
-    return m_CommandList.get();
+    UINT64 completedValue = m_D3D12Fence->GetCompletedValue();
+
+    std::cout << "Resetting lists" << completedValue << std::endl;
+    while (!m_UsedCommandLists.empty())
+    {
+        if (m_UsedCommandLists.front()->GetFenceValue() <= completedValue)
+        {
+            GraphicsCommandList* cmdList = m_UsedCommandLists.front();
+            m_UsedCommandLists.pop();
+
+            cmdList->Reset();
+            m_AvailableCommandLists.push(cmdList);
+            std::cout << cmdList->GetFenceValue() << std::endl;
+        }
+        else break;
+    }
+
+    if (m_AvailableCommandLists.empty())
+    {
+        m_CommandLists.emplace_back(std::make_unique<GraphicsCommandList>(m_Type));
+        m_CommandLists.back()->SetName(std::wstring(L"CommandList ") + std::to_wstring(m_CommandLists.size()));
+
+        m_AvailableCommandLists.push(m_CommandLists.back().get());
+    }
+
+    GraphicsCommandList* cmdList = m_AvailableCommandLists.front();
+    m_AvailableCommandLists.pop();
+    return cmdList;
 }
 
 void CommandQueue::ExecuteCommandList(GraphicsCommandList& a_CommandList)
@@ -42,6 +68,13 @@ void CommandQueue::ExecuteCommandList(GraphicsCommandList& a_CommandList)
     ID3D12CommandList* cmdLists[] = { a_CommandList.GetCommandListPtr().Get() };
 
     m_D3D12CommandQueue->ExecuteCommandLists(1, cmdLists);
+
+    ++m_FenceValue;
+    m_D3D12CommandQueue->Signal(m_D3D12Fence.Get(), m_FenceValue);
+    //m_D3D12Fence->Signal(m_FenceValue);
+
+    a_CommandList.SetFenceValue(m_FenceValue);
+    m_UsedCommandLists.push(&a_CommandList);
 }
 
 void CommandQueue::Flush()

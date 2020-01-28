@@ -4,6 +4,8 @@
 #include <d3d12.h>
 #include <cstdint>
 #include <memory>
+#include <vector>
+#include <queue>
 
 class GraphicsCommandList;
 
@@ -28,6 +30,10 @@ private:
     uint64_t m_FenceValue;
     Microsoft::WRL::ComPtr<ID3D12Fence1> m_D3D12Fence;
 
-    std::unique_ptr<GraphicsCommandList> m_CommandList;
+    std::vector<std::unique_ptr<GraphicsCommandList>> m_CommandLists;
+
+    std::queue<GraphicsCommandList*> m_AvailableCommandLists;
+    std::queue<GraphicsCommandList*> m_UsedCommandLists;
+
 };
 

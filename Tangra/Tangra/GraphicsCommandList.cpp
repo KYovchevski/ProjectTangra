@@ -9,6 +9,7 @@
 
 GraphicsCommandList::GraphicsCommandList(D3D12_COMMAND_LIST_TYPE a_Type)
     : m_Type(a_Type)
+    , m_FenceValue(std::numeric_limits<UINT64>::max())
 {
     auto device = Application::Get()->GetDevice()->GetDeviceObject();
 
@@ -26,6 +27,16 @@ void GraphicsCommandList::Reset()
 void GraphicsCommandList::Close()
 {
     ThrowIfFailed(m_D3D12CommandList->Close());
+}
+
+void GraphicsCommandList::ResourceBarrier(D3D12_RESOURCE_BARRIER& a_Barrier)
+{
+    m_D3D12CommandList->ResourceBarrier(1, &a_Barrier);
+}
+
+void GraphicsCommandList::ResourceBarriers(std::vector<D3D12_RESOURCE_BARRIER>& a_Barriers)
+{
+    m_D3D12CommandList->ResourceBarrier(static_cast<UINT>(a_Barriers.size()), &a_Barriers[0]);
 }
 
 void GraphicsCommandList::SetRenderTargets(std::vector<D3D12_CPU_DESCRIPTOR_HANDLE> a_RTVHandles, bool a_SingleRTVHandle,
@@ -61,6 +72,16 @@ void GraphicsCommandList::SetIndexBuffer(IndexBuffer& a_IndexBuffer)
     m_D3D12CommandList->IASetIndexBuffer(&bufferView);
 }
 
+void GraphicsCommandList::SetDescriptorHeap(ID3D12DescriptorHeap* a_DescriptorHeap)
+{
+    m_D3D12CommandList->SetDescriptorHeaps(1, &a_DescriptorHeap);
+}
+
+void GraphicsCommandList::SetDescriptorHeaps(std::vector<ID3D12DescriptorHeap*> a_DescriptorHeaps)
+{
+    m_D3D12CommandList->SetDescriptorHeaps(static_cast<UINT>(a_DescriptorHeaps.size()), &a_DescriptorHeaps[0]);
+}
+
 void GraphicsCommandList::SetPipelineState(PipelineState& a_NewState)
 {
     m_D3D12CommandList->SetPipelineState(a_NewState.GetPSO().Get());
@@ -77,6 +98,11 @@ void GraphicsCommandList::SetScissorRect(RECT a_Rect)
     m_D3D12CommandList->RSSetScissorRects(1, &a_Rect);
 }
 
+void GraphicsCommandList::SetTexture(UINT a_RootSignatureIndex, Texture& a_Texture)
+{
+    m_D3D12CommandList->SetGraphicsRootDescriptorTable(a_RootSignatureIndex, a_Texture.GetGPUDescriptorHandle());
+}
+
 void GraphicsCommandList::Draw(UINT a_VertexCount, UINT a_InstanceCount, UINT a_StartVertexLoc, UINT a_StartInstanceLoc)
 {
     m_D3D12CommandList->DrawInstanced(a_VertexCount, a_InstanceCount, a_StartVertexLoc, a_StartInstanceLoc);
@@ -86,6 +112,22 @@ void GraphicsCommandList::DrawIndexed(UINT a_IndexCount, UINT a_InstanceCount, U
     UINT a_StartInstanceLoc)
 {
     m_D3D12CommandList->DrawIndexedInstanced(a_IndexCount, a_InstanceCount, a_StarIndexLoc, a_BaseVertexLoc, a_StartInstanceLoc);
+}
+
+void GraphicsCommandList::SetFenceValue(UINT64 a_NewFenceValue)
+{
+    m_FenceValue = a_NewFenceValue;
+}
+
+void GraphicsCommandList::SetName(std::wstring a_Name)
+{
+    m_D3D12CommandAllocator->SetName((a_Name + L" Allocator").c_str());
+    m_D3D12CommandList->SetName(a_Name.c_str());
+}
+
+UINT64 GraphicsCommandList::GetFenceValue() const
+{
+    return m_FenceValue;
 }
 
 Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> GraphicsCommandList::GetCommandListPtr()

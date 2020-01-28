@@ -47,7 +47,7 @@ Texture::Texture(std::wstring& a_FilePath, GraphicsCommandList& a_CommandList)
     UpdateSubresources(a_CommandList.GetCommandListPtr().Get(), m_DefaultBuffer.Get(), m_UploadBuffer.Get(), 0, 0, 1, &subresources[0]);
 
     auto barrier = CD3DX12_RESOURCE_BARRIER::Transition(m_DefaultBuffer.Get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_COMMON);
-    a_CommandList.GetCommandListPtr()->ResourceBarrier(1, &barrier);
+    a_CommandList.ResourceBarrier(barrier);
 
     m_DescriptorHandle = Application::Get()->GetDevice()->AddSRV(m_DefaultBuffer);
     

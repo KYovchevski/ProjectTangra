@@ -135,7 +135,7 @@ void SwapChain::CreateDepthStencilBuffer(GraphicsCommandList& a_CommandList, DXG
 
     auto barrier = CD3DX12_RESOURCE_BARRIER::Transition(m_DepthStencilBuffer.Get(), D3D12_RESOURCE_STATE_COMMON, D3D12_RESOURCE_STATE_DEPTH_WRITE);
     app->GetDevice()->GetDeviceObject()->CreateDepthStencilView(m_DepthStencilBuffer.Get(), nullptr, GetDSVHandle());
-    a_CommandList.GetCommandListPtr()->ResourceBarrier(1, &barrier);
+    a_CommandList.ResourceBarrier(barrier);
 }
 
 void SwapChain::SetClearColor(DirectX::SimpleMath::Color a_NewClearColor)
@@ -154,7 +154,6 @@ void SwapChain::ClearBackBuffer(GraphicsCommandList& a_CommandList)
     cmdList->ResourceBarrier(1, &barrier);
 
     cmdList->ClearRenderTargetView(currentRTV, m_ClearColor, 0, nullptr);
-    cmdList->ClearDepthStencilView(GetDSVHandle(), D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0, 0, nullptr);
 
 }
 
@@ -163,24 +162,25 @@ void SwapChain::ClearDSV(GraphicsCommandList& a_CommandList)
     a_CommandList.GetCommandListPtr()->ClearDepthStencilView(GetDSVHandle(), D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0, 0, nullptr);
 }
 
-void SwapChain::Present(GraphicsCommandList& a_CommandList)
+void SwapChain::Present()
 {
     auto currentBackBuffer = GetCurrentBackbufferResource();
     auto currentRTV = GetCurrentRTVHandle();
 
+    auto cmdList = m_CommandQueue->GetCommandList();
+
     auto barrier = CD3DX12_RESOURCE_BARRIER::Transition(currentBackBuffer.Get(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT);
 
-    auto cmdList = a_CommandList.GetCommandListPtr();
-    cmdList->ResourceBarrier(1, &barrier);
+    cmdList->ResourceBarrier(barrier);
 
-    m_CommandQueue->ExecuteCommandList(a_CommandList);
+    m_CommandQueue->ExecuteCommandList(*cmdList);
 
-    ThrowIfFailed(m_DXGISwapChain->Present(0, 0));
+    ThrowIfFailed(m_DXGISwapChain->Present(1, 0));
 
     m_CurrentBackBuffer = (m_CurrentBackBuffer + 1) % m_NumBackBuffers;
 
     // for now, flush the command queue after each frame to keep it easy
-    m_CommandQueue->Flush();
+    //m_CommandQueue->Flush();
 }
 
 D3D12_CPU_DESCRIPTOR_HANDLE SwapChain::GetCurrentRTVHandle()
