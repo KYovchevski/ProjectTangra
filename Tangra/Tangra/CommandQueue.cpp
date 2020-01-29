@@ -42,7 +42,6 @@ GraphicsCommandList* CommandQueue::GetCommandList()
 {
     UINT64 completedValue = m_D3D12Fence->GetCompletedValue();
 
-    std::cout << "Resetting lists" << completedValue << std::endl;
     while (!m_UsedCommandLists.empty())
     {
         if (m_UsedCommandLists.front()->GetFenceValue() <= completedValue)
@@ -52,7 +51,6 @@ GraphicsCommandList* CommandQueue::GetCommandList()
 
             cmdList->Reset();
             m_AvailableCommandLists.push(cmdList);
-            std::cout << cmdList->GetFenceValue() << std::endl;
         }
         else break;
     }
