@@ -23,5 +23,5 @@ int CALLBACK wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
     appInitInfo.m_WindowTitle = L"Tongra cause retarded";
     Application::Create(appInitInfo);
 
-    Application::Get()->Run();
+    Application::Run();
 }

@@ -1,11 +1,14 @@
 #include "Device.h"
 #include "Helpers.h"
 #include <iostream>
+#include "CommandQueue.h"
+#include "ServiceLocator.h"
 
 using namespace Microsoft::WRL;
 
-Device::Device(Microsoft::WRL::ComPtr<IDXGIAdapter4> a_GraphicsAdapter) :
-    m_NumSRVHeapEntries(0)
+Device::Device(Microsoft::WRL::ComPtr<IDXGIAdapter4> a_GraphicsAdapter, ServiceLocator& a_ServiceLocator)
+    : m_NumSRVHeapEntries(0)
+    , m_Services(a_ServiceLocator)
 {
 #ifdef _DEBUG
     // if the application is ran in debug, enable the debug layer
@@ -29,6 +32,11 @@ Device::Device(Microsoft::WRL::ComPtr<IDXGIAdapter4> a_GraphicsAdapter) :
 
     ThrowIfFailed(tempDevice.As(&m_D3D12Device));
 
+}
+
+void Device::Initialize()
+{
+
     // query the descriptor sizes once only and save them for future use
     m_CBVDescriptorSize = m_D3D12Device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
     m_RTVDescriptorSize = m_D3D12Device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
@@ -44,6 +52,11 @@ Device::Device(Microsoft::WRL::ComPtr<IDXGIAdapter4> a_GraphicsAdapter) :
     heapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
 
     ThrowIfFailed(m_D3D12Device->CreateDescriptorHeap(&heapDesc, IID_PPV_ARGS(&m_SRVHeap)));
+
+    m_DirectCommandQueue = std::make_unique<CommandQueue>(m_Services, D3D12_COMMAND_LIST_TYPE_DIRECT);
+    m_ComputeCommandQueue= std::make_unique<CommandQueue>(m_Services, D3D12_COMMAND_LIST_TYPE_COMPUTE);
+    m_CopyCommandQueue = std::make_unique<CommandQueue>(m_Services, D3D12_COMMAND_LIST_TYPE_COPY);
+
 }
 
 CD3DX12_GPU_DESCRIPTOR_HANDLE Device::AddSRV(ComPtr<ID3D12Resource> a_SRVResource)
@@ -75,6 +88,26 @@ Microsoft::WRL::ComPtr<ID3D12Device2> Device::GetDeviceObject()
 Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> Device::GetSRVHeap()
 {
     return m_SRVHeap;
+}
+
+CommandQueue* Device::GetCommandQueue(D3D12_COMMAND_LIST_TYPE a_Type)
+{
+    switch (a_Type)
+    {
+    case D3D12_COMMAND_LIST_TYPE_DIRECT:
+        return m_DirectCommandQueue.get();
+        break;
+    case D3D12_COMMAND_LIST_TYPE_COMPUTE:
+        return m_ComputeCommandQueue.get();
+        break;
+    case D3D12_COMMAND_LIST_TYPE_COPY:
+        return m_CopyCommandQueue.get();
+        break;
+    default:
+        std::cout << "Device Error: Unknown command queue type" << std::endl;
+        return nullptr;
+        break;
+    }
 }
 
 UINT Device::GetDescriptorHandleSize(D3D12_DESCRIPTOR_HEAP_TYPE a_Type) const

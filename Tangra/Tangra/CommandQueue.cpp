@@ -3,11 +3,16 @@
 #include "Application.h"
 #include "Device.h"
 #include "GraphicsCommandList.h"
+#include "ServiceLocator.h"
+
+
 #include <iostream>
 
 using namespace Microsoft::WRL;
 
-CommandQueue::CommandQueue(D3D12_COMMAND_LIST_TYPE a_Type, D3D12_COMMAND_QUEUE_FLAGS a_Flags)
+CommandQueue::CommandQueue(ServiceLocator& a_ServiceLocator, D3D12_COMMAND_LIST_TYPE a_Type, D3D12_COMMAND_QUEUE_FLAGS a_Flags)
+    : m_Services(a_ServiceLocator)
+    , m_Type(a_Type)
 {
     D3D12_COMMAND_QUEUE_DESC directCommandQueueDesc;
     directCommandQueueDesc.Type = a_Type;
@@ -15,12 +20,17 @@ CommandQueue::CommandQueue(D3D12_COMMAND_LIST_TYPE a_Type, D3D12_COMMAND_QUEUE_F
     directCommandQueueDesc.NodeMask = 0;
     directCommandQueueDesc.Priority = D3D12_COMMAND_QUEUE_PRIORITY_NORMAL;
 
-    ComPtr<ID3D12Device> device = Application::Get()->GetDevice()->GetDeviceObject();
+    ComPtr<ID3D12Device> device = m_Services.m_Device->GetDeviceObject();
 
     ThrowIfFailed(device->CreateCommandQueue(&directCommandQueueDesc, IID_PPV_ARGS(&m_D3D12CommandQueue)));
 
     m_FenceValue = 0;
     ThrowIfFailed(device->CreateFence(m_FenceValue, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&m_D3D12Fence)));
+}
+
+CommandQueue::~CommandQueue()
+{
+
 }
 
 Microsoft::WRL::ComPtr<ID3D12CommandQueue> CommandQueue::GetCommandQueueObject()
@@ -49,7 +59,7 @@ GraphicsCommandList* CommandQueue::GetCommandList()
 
     if (m_AvailableCommandLists.empty())
     {
-        m_CommandLists.emplace_back(std::make_unique<GraphicsCommandList>(m_Type));
+        m_CommandLists.emplace_back(std::make_unique<GraphicsCommandList>(m_Services, m_Type));
         m_CommandLists.back()->SetName(std::wstring(L"CommandList ") + std::to_wstring(m_CommandLists.size()));
 
         m_AvailableCommandLists.push(m_CommandLists.back().get());

@@ -11,10 +11,12 @@
 
 class CommandQueue;
 
+struct ServiceLocator;
+
 class SwapChain
 {
 public:
-    SwapChain(HWND a_HWND, uint8_t a_NumBackBuffers, CommandQueue& a_CommandQueue, DXGI_FORMAT a_BackBufferFormat = DXGI_FORMAT_R8G8B8A8_UNORM);
+    SwapChain(ServiceLocator& a_ServiceLocator, HWND a_HWND, uint8_t a_NumBackBuffers,DXGI_FORMAT a_BackBufferFormat = DXGI_FORMAT_R8G8B8A8_UNORM);
 
     void CreateDescriptorHeaps();
     void CreateRenderTargets();
@@ -35,6 +37,7 @@ public:
     DXGI_FORMAT GetBackBufferFormat() const;
     uint8_t GetBufferCount() const;
 private:
+    ServiceLocator& m_Services;
 
     Microsoft::WRL::ComPtr<IDXGISwapChain> m_DXGISwapChain;
     CommandQueue* m_CommandQueue;

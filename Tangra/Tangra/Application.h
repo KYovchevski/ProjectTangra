@@ -44,16 +44,14 @@ public:
     };
 
     static void Create(InitInfo& a_InitInfo);
-    static Application* Get();
     static void Destroy();
 
-    void Run();
+    static void Run();
 
     LRESULT ProcessCallback(HWND a_HWND, UINT a_Message, WPARAM a_WParam, LPARAM a_LParam);
 
     void Initialize(InitInfo& a_InitInfo);
 
-    Device* GetDevice();
     Microsoft::WRL::ComPtr<IDXGIFactory1> GetDXGIFactory();
 
     uint32_t GetScreenWidth() const;
@@ -79,13 +77,12 @@ private:
     HWND CreateWindowInstance(WindowInfo& a_WindowInfo);
     void CreateDXGIFactory();
     Microsoft::WRL::ComPtr<IDXGIAdapter4> QueryGraphicsAdapters();
-    void CreateD3D12Device(Microsoft::WRL::ComPtr<IDXGIAdapter4> a_graphicsAdapter);
     void LoadPSOs();
 
     void Render();
-
+/*
     static Application* ms_Instance;
-    static bool ms_Initialized;
+    static bool ms_Initialized;*/
 
     // renderer variables
     uint32_t m_ScreenWidth;
@@ -93,9 +90,6 @@ private:
 
     // d3d12 objects
     Microsoft::WRL::ComPtr<IDXGIFactory1> m_DXGIFactory;
-    std::unique_ptr<Device> m_D3DDevice;
-    std::unique_ptr<SwapChain> m_SwapChain;
-    std::unique_ptr<CommandQueue> m_DirectCommandQueue;
 
     std::unique_ptr<VertexBuffer> m_Buffer;
     std::unique_ptr<IndexBuffer> m_IndexBuffer;

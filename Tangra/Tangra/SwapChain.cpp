@@ -4,21 +4,23 @@
 #include "CommandQueue.h"
 #include "Device.h"
 #include "GraphicsCommandList.h"
+#include "ServiceLocator.h"
 
 #include "d3dx12.h"
 
 using namespace Microsoft::WRL;
 
-SwapChain::SwapChain(HWND a_HWND, uint8_t a_NumBackBuffers, CommandQueue& a_CommandQueue, DXGI_FORMAT a_BackBufferFormat)
+SwapChain::SwapChain(ServiceLocator& a_ServiceLocator, HWND a_HWND, uint8_t a_NumBackBuffers, DXGI_FORMAT a_BackBufferFormat)
+    : m_Services(a_ServiceLocator)
 {
     m_BackBufferFormat = a_BackBufferFormat;
     m_NumBackBuffers = a_NumBackBuffers;
     m_CurrentBackBuffer = 0;
     m_DepthStencilFormat = DXGI_FORMAT_UNKNOWN;
 
-    m_CommandQueue = &a_CommandQueue;
+    m_CommandQueue = a_ServiceLocator.m_Device->GetCommandQueue();
 
-    Application* app = Application::Get();
+    Application* app = m_Services.m_App.get();
     DXGI_SWAP_CHAIN_DESC swapChainDesc = {};
     {
         swapChainDesc.BufferDesc.Width = app->GetScreenWidth();
@@ -41,7 +43,7 @@ SwapChain::SwapChain(HWND a_HWND, uint8_t a_NumBackBuffers, CommandQueue& a_Comm
         swapChainDesc.BufferCount = a_NumBackBuffers;
         swapChainDesc.OutputWindow = a_HWND;
 
-        ThrowIfFailed(app->GetDXGIFactory()->CreateSwapChain(a_CommandQueue.GetCommandQueueObject().Get(), &swapChainDesc, &m_DXGISwapChain));
+        ThrowIfFailed(app->GetDXGIFactory()->CreateSwapChain(m_CommandQueue->GetCommandQueueObject().Get(), &swapChainDesc, &m_DXGISwapChain));
     }
 }
 
@@ -73,14 +75,14 @@ void SwapChain::CreateDescriptorHeaps()
     dsvHeapDesc.NumDescriptors = 1;
     dsvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_DSV;
 
-    auto d3d12Device = Application::Get()->GetDevice()->GetDeviceObject();
+    auto d3d12Device = m_Services.m_Device->GetDeviceObject();
     d3d12Device->CreateDescriptorHeap(&rtvHeapDesc, IID_PPV_ARGS(&m_RTVDescriptorHeap));
     d3d12Device->CreateDescriptorHeap(&dsvHeapDesc, IID_PPV_ARGS(&m_DSVDescriptorHeap));
 }
 
 void SwapChain::CreateRenderTargets()
 {
-    auto d3d12Device = Application::Get()->GetDevice()->GetDeviceObject();
+    auto d3d12Device = m_Services.m_Device->GetDeviceObject();
 
     // handle to the beginning of the RTV descriptor heap
     CD3DX12_CPU_DESCRIPTOR_HANDLE rtvHandle = CD3DX12_CPU_DESCRIPTOR_HANDLE(m_RTVDescriptorHeap->GetCPUDescriptorHandleForHeapStart());
@@ -98,7 +100,7 @@ void SwapChain::CreateRenderTargets()
         d3d12Device->CreateRenderTargetView(buffer.Get(), nullptr, rtvHandle);
 
         // move the descriptor handle to the next descriptor in the heap
-        rtvHandle.Offset(1, Application::Get()->GetDevice()->GetDescriptorHandleSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV));
+        rtvHandle.Offset(1, m_Services.m_Device->GetDescriptorHandleSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV));
         m_BackBuffers.push_back(buffer);
     }
 
@@ -107,7 +109,8 @@ void SwapChain::CreateRenderTargets()
 void SwapChain::CreateDepthStencilBuffer(GraphicsCommandList& a_CommandList, DXGI_FORMAT a_Format)
 {
     m_DepthStencilFormat = a_Format;
-    auto app = Application::Get();
+    auto app = m_Services.m_App.get();
+    auto device = m_Services.m_Device.get();
 
     D3D12_RESOURCE_DESC dsvResourceDesc = {};
     dsvResourceDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
@@ -128,13 +131,13 @@ void SwapChain::CreateDepthStencilBuffer(GraphicsCommandList& a_CommandList, DXG
     clearValue.DepthStencil.Stencil = 0;
 
     auto heapProperties = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT);
-    ThrowIfFailed(app->GetDevice()->GetDeviceObject()->CreateCommittedResource(&heapProperties, D3D12_HEAP_FLAG_NONE,
+    ThrowIfFailed(device->GetDeviceObject()->CreateCommittedResource(&heapProperties, D3D12_HEAP_FLAG_NONE,
         &dsvResourceDesc, D3D12_RESOURCE_STATE_COMMON, &clearValue, IID_PPV_ARGS(&m_DepthStencilBuffer)));
 
     m_DepthStencilBuffer->SetName(L"Depth Stencil Buffer");
 
     auto barrier = CD3DX12_RESOURCE_BARRIER::Transition(m_DepthStencilBuffer.Get(), D3D12_RESOURCE_STATE_COMMON, D3D12_RESOURCE_STATE_DEPTH_WRITE);
-    app->GetDevice()->GetDeviceObject()->CreateDepthStencilView(m_DepthStencilBuffer.Get(), nullptr, GetDSVHandle());
+    device->GetDeviceObject()->CreateDepthStencilView(m_DepthStencilBuffer.Get(), nullptr, GetDSVHandle());
     a_CommandList.ResourceBarrier(barrier);
 }
 
@@ -186,7 +189,7 @@ void SwapChain::Present()
 D3D12_CPU_DESCRIPTOR_HANDLE SwapChain::GetCurrentRTVHandle()
 {
     return CD3DX12_CPU_DESCRIPTOR_HANDLE(m_RTVDescriptorHeap->GetCPUDescriptorHandleForHeapStart(), m_CurrentBackBuffer,
-        Application::Get()->GetDevice()->GetDescriptorHandleSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV));
+        m_Services.m_Device->GetDescriptorHandleSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV));
 }
 
 Microsoft::WRL::ComPtr<ID3D12Resource> SwapChain::GetCurrentBackbufferResource()

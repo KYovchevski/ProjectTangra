@@ -2,20 +2,23 @@
 #include "RenderResource.h"
 #include "Application.h"
 #include "GraphicsCommandList.h"
+#include "ServiceLocator.h"
+#include "Device.h"
+
+#include "d3dx12.h"
+
 #include <vector>
 #include "iostream"
 
-#include "d3dx12.h"
 class GraphicsCommandList;
 
 class IndexBuffer :
     public RenderResource
 {
 public:
-    IndexBuffer();
 
     template <typename T>
-    IndexBuffer(std::vector<T> a_Indices, GraphicsCommandList& a_CommandList, D3D12_RESOURCE_FLAGS a_Flags = D3D12_RESOURCE_FLAG_NONE);
+    IndexBuffer(ServiceLocator& a_ServiceLocator, std::vector<T> a_Indices, GraphicsCommandList& a_CommandList, D3D12_RESOURCE_FLAGS a_Flags = D3D12_RESOURCE_FLAG_NONE);
 
     UINT GetNumIndices() const;
 
@@ -25,12 +28,11 @@ private:
 
     D3D12_INDEX_BUFFER_VIEW m_IndexBufferView;
     UINT m_NumIndices;
-
-    bool m_IsValid;
 };
 
 template <typename T>
-IndexBuffer::IndexBuffer(std::vector<T> a_Indices, GraphicsCommandList& a_CommandList, D3D12_RESOURCE_FLAGS a_Flags)
+IndexBuffer::IndexBuffer(ServiceLocator& a_ServiceLocator, std::vector<T> a_Indices, GraphicsCommandList& a_CommandList, D3D12_RESOURCE_FLAGS a_Flags)
+    : RenderResource(a_ServiceLocator)
 {
     m_NumIndices = static_cast<UINT>(a_Indices.size());
 
@@ -53,7 +55,7 @@ IndexBuffer::IndexBuffer(std::vector<T> a_Indices, GraphicsCommandList& a_Comman
         break;
     }
 
-    auto device = Application::Get()->GetDevice()->GetDeviceObject();
+    auto device = m_Services.m_Device->GetDeviceObject();
 
     CD3DX12_RESOURCE_DESC bufferDesc = CD3DX12_RESOURCE_DESC::Buffer(sizeof(T) * a_Indices.size(), a_Flags);
 

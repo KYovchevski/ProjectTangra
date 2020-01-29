@@ -8,16 +8,15 @@
 #include "Device.h"
 #include "GraphicsCommandList.h"
 #include "RenderResource.h"
+#include "ServiceLocator.h"
 
 class VertexBuffer
     : public RenderResource
 {
 public:
 
-    VertexBuffer();
-
     template <typename T>
-    VertexBuffer(std::vector<T> a_Vertices, GraphicsCommandList& a_CommandList, D3D12_RESOURCE_FLAGS a_Flags = D3D12_RESOURCE_FLAG_NONE);
+    VertexBuffer(ServiceLocator& a_ServiceLocator, std::vector<T> a_Vertices, GraphicsCommandList& a_CommandList, D3D12_RESOURCE_FLAGS a_Flags = D3D12_RESOURCE_FLAG_NONE);
 
     UINT GetNumVertices() const;
 
@@ -32,10 +31,10 @@ private:
 };
 
 template <typename T>
-VertexBuffer::VertexBuffer(std::vector<T> a_Vertices, GraphicsCommandList& a_CommandList, D3D12_RESOURCE_FLAGS a_Flags)
+VertexBuffer::VertexBuffer(ServiceLocator& a_ServiceLocator, std::vector<T> a_Vertices, GraphicsCommandList& a_CommandList, D3D12_RESOURCE_FLAGS a_Flags)
+    : RenderResource(a_ServiceLocator)
 {
-    auto app = Application::Get();
-    auto device = app->GetDevice();
+    auto device = m_Services.m_Device.get();
     // describe the vertex buffer to be created
     CD3DX12_RESOURCE_DESC vertexBufferDesc = CD3DX12_RESOURCE_DESC::Buffer(a_Vertices.size() * sizeof(T), a_Flags);
 
@@ -53,10 +52,10 @@ VertexBuffer::VertexBuffer(std::vector<T> a_Vertices, GraphicsCommandList& a_Com
     subresourceData.RowPitch = a_Vertices.size() * sizeof(T);
     // the subresource is used for a vertex buffer, so the row pitch and the slice pitch are the same
     subresourceData.SlicePitch = subresourceData.RowPitch;
-    
+
     UpdateSubresources(a_CommandList.GetCommandListPtr().Get(), m_DefaultBuffer.Get(), m_UploadBuffer.Get(),
         0, 0, 1, &subresourceData);
-    
+
     // transition the vertex buffer resource into a read state
     auto barrier = CD3DX12_RESOURCE_BARRIER::Transition(m_DefaultBuffer.Get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_GENERIC_READ);
     a_CommandList.ResourceBarrier(barrier);

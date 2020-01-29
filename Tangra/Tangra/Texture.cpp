@@ -2,13 +2,15 @@
 #include "Application.h"
 #include "Device.h"
 #include "GraphicsCommandList.h"
+#include "ServiceLocator.h"
 
 #include "DirectXTex.h"
 #include "d3dx12.h"
 
 using namespace DirectX;
-
-Texture::Texture(std::wstring& a_FilePath, GraphicsCommandList& a_CommandList)
+ 
+Texture::Texture(std::wstring& a_FilePath, GraphicsCommandList& a_CommandList, ServiceLocator& a_ServiceLocator)
+    : RenderResource(a_ServiceLocator)
 {
     ScratchImage scratchImage;
     TexMetadata metaData;
@@ -18,7 +20,7 @@ Texture::Texture(std::wstring& a_FilePath, GraphicsCommandList& a_CommandList)
 
     auto bufferDesc = CD3DX12_RESOURCE_DESC::Tex2D(metaData.format, static_cast<UINT16>(metaData.width), static_cast<UINT16>(metaData.height), static_cast<UINT16>(metaData.arraySize));
 
-    auto device = Application::Get()->GetDevice()->GetDeviceObject();
+    auto device = m_Services.m_Device->GetDeviceObject();
 
     {
         CD3DX12_HEAP_PROPERTIES heapProperties;
@@ -49,7 +51,7 @@ Texture::Texture(std::wstring& a_FilePath, GraphicsCommandList& a_CommandList)
     auto barrier = CD3DX12_RESOURCE_BARRIER::Transition(m_DefaultBuffer.Get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_COMMON);
     a_CommandList.ResourceBarrier(barrier);
 
-    m_DescriptorHandle = Application::Get()->GetDevice()->AddSRV(m_DefaultBuffer);
+    m_DescriptorHandle = m_Services.m_Device->AddSRV(m_DefaultBuffer);
     
 }
 

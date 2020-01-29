@@ -3,6 +3,8 @@
 #include "wrl.h"
 #include "d3dx12.h"
 
+struct ServiceLocator;
+
 class PipelineState
 {
 public:
@@ -22,7 +24,7 @@ public:
         CD3DX12_DEPTH_STENCIL_DESC m_DepthStencil = CD3DX12_DEPTH_STENCIL_DESC(CD3DX12_DEFAULT());
     };
 
-    PipelineState(InitializationData a_InitData);
+    PipelineState(InitializationData a_InitData, ServiceLocator& a_ServiceLocator );
 
     // getters for the D3D12 interfaces
     Microsoft::WRL::ComPtr<ID3D12PipelineState> GetPSO();
@@ -42,6 +44,8 @@ private:
         CD3DX12_PIPELINE_STATE_STREAM_RENDER_TARGET_FORMATS m_RTVFormats;
         CD3DX12_PIPELINE_STATE_STREAM_DEPTH_STENCIL m_depthStencil;
     };
+
+    ServiceLocator& m_Services;
 
     Microsoft::WRL::ComPtr<ID3D12PipelineState> m_D3D12PipelineState;
     Microsoft::WRL::ComPtr<ID3D12RootSignature> m_D3D12RootSignature;

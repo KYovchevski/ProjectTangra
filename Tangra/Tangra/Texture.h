@@ -7,18 +7,19 @@
 
 class GraphicsCommandList;
 
+
 class Texture
     : public RenderResource
 {
 public:
     Texture();
 
-    Texture(std::wstring& a_FilePath, GraphicsCommandList& a_CommandList);
+    Texture(std::wstring& a_FilePath, GraphicsCommandList& a_CommandList, ServiceLocator& a_ServiceLocator);
 
     CD3DX12_GPU_DESCRIPTOR_HANDLE GetGPUDescriptorHandle() const;
 
 private:
-    
+
     CD3DX12_GPU_DESCRIPTOR_HANDLE m_DescriptorHandle;
 };
 

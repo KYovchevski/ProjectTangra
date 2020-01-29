@@ -1,11 +1,6 @@
 #include "VertexBuffer.h"
 
-VertexBuffer::VertexBuffer()
-{
-    m_IsValid = false;
-    m_VertexBufferView = {};
-    m_NumVertices = 0;
-}
+
 
 UINT VertexBuffer::GetNumVertices() const
 {

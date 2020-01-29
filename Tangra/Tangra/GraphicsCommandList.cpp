@@ -6,12 +6,15 @@
 #include "PipelineState.h"
 #include "VertexBuffer.h"
 #include "IndexBuffer.h"
+#include "ServiceLocator.h"
 
-GraphicsCommandList::GraphicsCommandList(D3D12_COMMAND_LIST_TYPE a_Type)
+
+GraphicsCommandList::GraphicsCommandList(ServiceLocator& a_ServiceLocator, D3D12_COMMAND_LIST_TYPE a_Type)
     : m_Type(a_Type)
     , m_FenceValue(std::numeric_limits<UINT64>::max())
+    , m_Services(a_ServiceLocator)
 {
-    auto device = Application::Get()->GetDevice()->GetDeviceObject();
+    auto device = m_Services.m_Device->GetDeviceObject();
 
     ThrowIfFailed(device->CreateCommandAllocator(a_Type, IID_PPV_ARGS(&m_D3D12CommandAllocator)));
     ThrowIfFailed(device->CreateCommandList(0, a_Type, m_D3D12CommandAllocator.Get(), nullptr, IID_PPV_ARGS(&m_D3D12CommandList)));

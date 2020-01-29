@@ -2,13 +2,16 @@
 #include "Helpers.h"
 #include "Application.h"
 #include "Device.h"
+#include "ServiceLocator.h"
+
 #include <d3dcompiler.h>
 
 using namespace Microsoft::WRL;
 
-PipelineState::PipelineState(InitializationData a_InitData)
+PipelineState::PipelineState(InitializationData a_InitData, ServiceLocator& a_ServiceLocator)
+    : m_Services(a_ServiceLocator)
 {
-    auto device = Application::Get()->GetDevice()->GetDeviceObject();
+    auto device = m_Services.m_Device->GetDeviceObject();
 
     CD3DX12_ROOT_SIGNATURE_DESC rootSignatureDesc = {};
     CD3DX12_ROOT_PARAMETER* rootParametersPtr =      !a_InitData.m_RootParameters.empty() ? &a_InitData.m_RootParameters[0] : nullptr;

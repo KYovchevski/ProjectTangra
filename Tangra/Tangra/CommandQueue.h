@@ -9,10 +9,13 @@
 
 class GraphicsCommandList;
 
+struct ServiceLocator;
+
 class CommandQueue
 {
 public:
-    CommandQueue(D3D12_COMMAND_LIST_TYPE a_Type, D3D12_COMMAND_QUEUE_FLAGS a_Flags = D3D12_COMMAND_QUEUE_FLAG_NONE);
+    CommandQueue(ServiceLocator& a_ServiceLocator, D3D12_COMMAND_LIST_TYPE a_Type, D3D12_COMMAND_QUEUE_FLAGS a_Flags = D3D12_COMMAND_QUEUE_FLAG_NONE);
+    ~CommandQueue();
 
     Microsoft::WRL::ComPtr<ID3D12CommandQueue> GetCommandQueueObject();
 
@@ -22,6 +25,8 @@ public:
 
     void Flush();
 private:
+    ServiceLocator& m_Services;
+
     
     D3D12_COMMAND_LIST_TYPE m_Type;
 

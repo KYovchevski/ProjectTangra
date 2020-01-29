@@ -8,6 +8,8 @@
 #include "VertexBuffer.h"
 #include "IndexBuffer.h"
 
+#include "ServiceLocator.h"
+
 #include "Helpers.h"
 
 #include <filesystem>
@@ -19,21 +21,22 @@
 #include <d3dcompiler.h>
 
 namespace fs = std::experimental::filesystem;
+//
+//Application* Application::ms_Instance = nullptr;
+//bool Application::ms_Initialized = false;
 
-Application* Application::ms_Instance = nullptr;
-bool Application::ms_Initialized = false;
+// Global ServiceLocator which holds the Application instance. Needed to provide access to the application in WndProc
+ServiceLocator g_ServiceLocator;
 
 using namespace Microsoft::WRL;
 
 void Application::Create(InitInfo& a_InitInfo)
 {
-    if (ms_Instance == nullptr)
+    if (g_ServiceLocator.m_App == nullptr)
     {
-        ms_Instance = new Application();
+        g_ServiceLocator.m_App = std::unique_ptr<Application>(new Application());
 
-        ms_Instance->Initialize(a_InitInfo);
-
-        ms_Initialized = true;
+        g_ServiceLocator.m_App->Initialize(a_InitInfo);
     }
     else
     {
@@ -41,34 +44,17 @@ void Application::Create(InitInfo& a_InitInfo)
     }
 }
 
-Application* Application::Get()
-{
-    if (ms_Instance)
-    {
-        return ms_Instance;
-    }
-    else
-    {
-        std::cout << "ERROR: Create the Application before using it." << std::endl;
-        return nullptr;
-    }
-}
-
 void Application::Destroy()
 {
-    if (ms_Initialized)
+    if (g_ServiceLocator.m_App)
     {
-        delete ms_Instance;
-        ms_Instance = nullptr;
+        g_ServiceLocator.m_App.reset();
         std::cout << "Application instance destroyed." << std::endl;
-
-        ms_Initialized = false;
     }
 }
 
 void Application::Run()
 {
-    ::ShowWindow(m_HWND, SW_SHOW);
     MSG msg = {};
     while (msg.message != WM_QUIT)
     {
@@ -95,7 +81,7 @@ LRESULT Application::ProcessCallback(HWND a_HWND, UINT a_Message, WPARAM a_WPara
 
 void Application::Initialize(InitInfo& a_InitInfo)
 {
-    CoInitialize(NULL);
+    ThrowIfFailed(CoInitialize(NULL));
 
     // if requested allocate a console to output debug information to
     if (a_InitInfo.m_CreateDebugConsole)
@@ -118,7 +104,6 @@ void Application::Initialize(InitInfo& a_InitInfo)
 
     CreateDXGIFactory();
     auto graphicsAdapter = QueryGraphicsAdapters();
-    CreateD3D12Device(graphicsAdapter);
 
     // dirty way to find the assets folder regardless if the app is ran via the .exe or via Visual studio
 
@@ -154,20 +139,22 @@ void Application::Initialize(InitInfo& a_InitInfo)
     std::cout << "Working directory set to: " << fs::current_path() << std::endl;
     std::cout << "Creating direct command queue" << std::endl;
 
-    m_DirectCommandQueue = std::make_unique<CommandQueue>(D3D12_COMMAND_LIST_TYPE_DIRECT);
+    g_ServiceLocator.m_Device = std::make_unique<Device>(graphicsAdapter, g_ServiceLocator);
+    g_ServiceLocator.m_Device->Initialize();
+    CommandQueue* commandQueue = g_ServiceLocator.m_Device->GetCommandQueue();
 
-    m_SwapChain = std::make_unique<SwapChain>(m_HWND, a_InitInfo.m_NumBuffers, *m_DirectCommandQueue);
+    g_ServiceLocator.m_SwapChain = std::make_unique<SwapChain>(g_ServiceLocator, m_HWND, a_InitInfo.m_NumBuffers);
     std::cout << "Creating descriptor heaps" << std::endl;
-    m_SwapChain->CreateDescriptorHeaps();
+    g_ServiceLocator.m_SwapChain->CreateDescriptorHeaps();
 
-    GraphicsCommandList* commandList = m_DirectCommandQueue->GetCommandList();
+    GraphicsCommandList* commandList = commandQueue->GetCommandList();
 
     std::cout << "Creating RTVs" << std::endl;
-    m_SwapChain->CreateRenderTargets();
+    g_ServiceLocator.m_SwapChain->CreateRenderTargets();
 
     
     std::cout << "Creating depth stencil buffer" << std::endl;
-    m_SwapChain->CreateDepthStencilBuffer(*commandList);
+    g_ServiceLocator.m_SwapChain->CreateDepthStencilBuffer(*commandList);
 
 
     std::cout << "Creating triangle vertex buffer" << std::endl;
@@ -186,13 +173,13 @@ void Application::Initialize(InitInfo& a_InitInfo)
     std::vector<vertex> vertices = { v1, v2, v3 };
     std::vector<UINT> indices = { 0, 1, 2 };
     //std::reverse(vertices.begin(), vertices.end());
-    m_Buffer = std::make_unique<VertexBuffer>(vertices, *commandList);
+    m_Buffer = std::make_unique<VertexBuffer>(g_ServiceLocator, vertices, *commandList);
 
-    m_IndexBuffer = std::make_unique<IndexBuffer>(indices, *commandList);
+    m_IndexBuffer = std::make_unique<IndexBuffer>(g_ServiceLocator, indices, *commandList);
 
     std::wstring path = L"Textures/debugTex.png";
 
-    m_Texture = std::make_unique<Texture>(path, *commandList);
+    m_Texture = std::make_unique<Texture>(path, *commandList, g_ServiceLocator);
 
     std::cout << "Creating pipeline state object" << std::endl;
     LoadPSOs();
@@ -212,15 +199,12 @@ void Application::Initialize(InitInfo& a_InitInfo)
 
 
 
-    m_DirectCommandQueue->ExecuteCommandList(*commandList);
-    m_DirectCommandQueue->Flush();
+    commandQueue->ExecuteCommandList(*commandList);
+    commandQueue->Flush();
 
     std::cout << "Initialization completed." << std::endl;
-}
+    ::ShowWindow(m_HWND, SW_SHOW);
 
-Device* Application::GetDevice()
-{
-    return m_D3DDevice.get();
 }
 
 Microsoft::WRL::ComPtr<IDXGIFactory1> Application::GetDXGIFactory()
@@ -295,7 +279,10 @@ HWND Application::CreateWindowInstance(Application::WindowInfo& a_WindowInfo)
 }
 
 Application::Application()
+    : m_ScissorRect(RECT())
+    , m_Viewport(D3D12_VIEWPORT())
 {
+    m_ScissorRect = RECT();
     m_ScreenHeight = 0;
     m_ScreenWidth = 0;
     m_HWND = NULL;
@@ -392,11 +379,6 @@ ComPtr<IDXGIAdapter4> Application::QueryGraphicsAdapters()
     return dxgiAdapterToUse;
 }
 
-void Application::CreateD3D12Device(Microsoft::WRL::ComPtr<IDXGIAdapter4> a_graphicsAdapter)
-{
-
-    m_D3DDevice = std::make_unique<Device>(a_graphicsAdapter);
-}
 
 void Application::LoadPSOs()
 {
@@ -453,33 +435,35 @@ void Application::LoadPSOs()
     backElement->InstanceDataStepRate = 0;
 
 
-    initData.m_DSVFormat = m_SwapChain->GetDepthStencilFormat();
+    initData.m_DSVFormat = g_ServiceLocator.m_SwapChain->GetDepthStencilFormat();
     initData.m_VertexShaderPath = L"ShaderCSOs/VertexShader.cso";
     initData.m_PixelShaderPath = L"ShaderCSOs/PixelShader.cso";
     initData.m_PrimitiveTopology = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
-    initData.m_RTVFormats.push_back(m_SwapChain->GetBackBufferFormat());
+    initData.m_RTVFormats.push_back(g_ServiceLocator.m_SwapChain->GetBackBufferFormat());
 
-    m_MainPSO = std::make_unique<PipelineState>(initData);
+    m_MainPSO = std::make_unique<PipelineState>(initData, g_ServiceLocator);
 }
 
 void Application::Render()
 {
 
-    m_SwapChain->SetClearColor(DirectX::SimpleMath::Color(0.4f, 0.5f, 0.9f, 1.0f));
+    g_ServiceLocator.m_SwapChain->SetClearColor(DirectX::SimpleMath::Color(0.4f, 0.5f, 0.9f, 1.0f));
 
+
+    auto directCommandQueue = g_ServiceLocator.m_Device->GetCommandQueue();
     // for simplicity, use a single command list for clearing, drawing and presenting
-    auto commandList = m_DirectCommandQueue->GetCommandList();
+    auto commandList = directCommandQueue->GetCommandList();
     
-    m_SwapChain->ClearBackBuffer(*commandList);
-    m_SwapChain->ClearDSV(*commandList);
+    g_ServiceLocator.m_SwapChain->ClearBackBuffer(*commandList);
+    g_ServiceLocator.m_SwapChain->ClearDSV(*commandList);
 
-    auto srvHeap = m_D3DDevice->GetSRVHeap().Get();
+    auto srvHeap = g_ServiceLocator.m_Device->GetSRVHeap().Get();
        
     commandList->SetPipelineState(*m_MainPSO);
     commandList->SetPrimitiveTopology(D3D10_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
     commandList->SetViewport(m_Viewport);
     commandList->SetScissorRect(m_ScissorRect);
-    commandList->SetRenderTargets(std::vector<D3D12_CPU_DESCRIPTOR_HANDLE>{m_SwapChain->GetCurrentRTVHandle()}, TRUE, m_SwapChain->GetDSVHandle());
+    commandList->SetRenderTargets(std::vector<D3D12_CPU_DESCRIPTOR_HANDLE>{g_ServiceLocator.m_SwapChain->GetCurrentRTVHandle()}, TRUE, g_ServiceLocator.m_SwapChain->GetDSVHandle());
     commandList->SetVertexBuffer(*m_Buffer);
     commandList->SetIndexBuffer(*m_IndexBuffer);
     commandList->SetDescriptorHeap(srvHeap);
@@ -506,13 +490,13 @@ void Application::Render()
     
     commandList->DrawIndexed(m_IndexBuffer->GetNumIndices());
 
-    m_DirectCommandQueue->ExecuteCommandList(*commandList);
+    directCommandQueue->ExecuteCommandList(*commandList);
 
-    m_SwapChain->Present();
+    g_ServiceLocator.m_SwapChain->Present();
 
 }
 
 LRESULT WindowsCallback(HWND a_HWND, UINT a_Message, WPARAM a_WParam, LPARAM a_LParam)
 {
-    return Application::Get()->ProcessCallback(a_HWND, a_Message, a_WParam, a_LParam);
+    return g_ServiceLocator.m_App->ProcessCallback(a_HWND, a_Message, a_WParam, a_LParam);
 }

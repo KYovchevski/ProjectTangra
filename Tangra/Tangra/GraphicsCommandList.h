@@ -10,11 +10,14 @@ class IndexBuffer;
 class VertexBuffer;
 class PipelineState;
 
+struct ServiceLocator;
+
 class GraphicsCommandList
 {
 public:
 
-    GraphicsCommandList(D3D12_COMMAND_LIST_TYPE a_Type);
+    GraphicsCommandList(ServiceLocator& a_ServiceLocator, D3D12_COMMAND_LIST_TYPE a_Type);
+    ~GraphicsCommandList(){};
 
     void Reset();
     void Close();
@@ -49,6 +52,8 @@ public:
     Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> GetCommandListPtr();
 
 private:
+    ServiceLocator& m_Services;
+
     Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> m_D3D12CommandList;
     Microsoft::WRL::ComPtr<ID3D12CommandAllocator> m_D3D12CommandAllocator;
 
