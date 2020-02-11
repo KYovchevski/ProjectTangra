@@ -173,13 +173,15 @@ void Application::Initialize(InitInfo& a_InitInfo)
     std::vector<vertex> vertices = { v1, v2, v3 };
     std::vector<UINT> indices = { 0, 1, 2 };
     //std::reverse(vertices.begin(), vertices.end());
-    m_Buffer = std::make_unique<VertexBuffer>(g_ServiceLocator, vertices, *commandList);
+    //m_Buffer = std::make_unique<VertexBuffer>(g_ServiceLocator, vertices, *commandList);
+    m_Buffer = commandList->CreateVertexBuffer(vertices);
 
-    m_IndexBuffer = std::make_unique<IndexBuffer>(g_ServiceLocator, indices, *commandList);
+    //m_IndexBuffer = std::make_unique<IndexBuffer>(g_ServiceLocator, indices, *commandList);
+    m_IndexBuffer = commandList->CreateIndexBuffer(indices);
 
     std::wstring path = L"Textures/debugTex.png";
 
-    m_Texture = std::make_unique<Texture>(path, *commandList, g_ServiceLocator);
+    m_Texture = commandList->CreateTextureFromFilePath(path);
 
     std::cout << "Creating pipeline state object" << std::endl;
     LoadPSOs();
@@ -388,8 +390,7 @@ void Application::LoadPSOs()
         D3D12_ROOT_SIGNATURE_FLAG_DENY_DOMAIN_SHADER_ROOT_ACCESS |
         D3D12_ROOT_SIGNATURE_FLAG_DENY_GEOMETRY_SHADER_ROOT_ACCESS;
 
-    CD3DX12_DESCRIPTOR_RANGE descriptorRange(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 0);
-    descriptorRange.RegisterSpace = 1;
+    CD3DX12_DESCRIPTOR_RANGE descriptorRange(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 0, 1);
 
     initData.m_RootParameters.emplace_back();
     initData.m_RootParameters.back().InitAsConstants(sizeof(DirectX::XMMATRIX) / 4, 0, 0, D3D12_SHADER_VISIBILITY_VERTEX);
@@ -464,10 +465,10 @@ void Application::Render()
     commandList->SetViewport(m_Viewport);
     commandList->SetScissorRect(m_ScissorRect);
     commandList->SetRenderTargets(std::vector<D3D12_CPU_DESCRIPTOR_HANDLE>{g_ServiceLocator.m_SwapChain->GetCurrentRTVHandle()}, TRUE, g_ServiceLocator.m_SwapChain->GetDSVHandle());
-    commandList->SetVertexBuffer(*m_Buffer);
-    commandList->SetIndexBuffer(*m_IndexBuffer);
+    commandList->SetVertexBuffer(m_Buffer);
+    commandList->SetIndexBuffer(m_IndexBuffer);
     commandList->SetDescriptorHeap(srvHeap);
-    commandList->SetTexture(1, *m_Texture);
+    commandList->SetTexture(1, m_Texture);
 
     namespace sm = DirectX::SimpleMath;
 
@@ -488,7 +489,7 @@ void Application::Render()
     commandList->SetRoot32BitConstant(0, mat);
     //commandList->GetCommandListPtr()->SetGraphicsRoot32BitConstants(0, sizeof(mat) / 4, &mat, 0);
     
-    commandList->DrawIndexed(m_IndexBuffer->GetNumIndices());
+    commandList->DrawIndexed(m_IndexBuffer.GetNumIndices());
 
     directCommandQueue->ExecuteCommandList(*commandList);
 

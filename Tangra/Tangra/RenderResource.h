@@ -9,13 +9,12 @@ class RenderResource
 public:
 
     RenderResource() = default;
-    RenderResource(ServiceLocator& a_ServiceLocator) : m_Services(a_ServiceLocator) {}
+    RenderResource(Microsoft::WRL::ComPtr<ID3D12Resource> a_defaultBuffer) : m_DefaultBuffer(a_defaultBuffer) {}
 
     void SetName(std::wstring a_NewName);
 
     ~RenderResource();
 protected:
-    ServiceLocator& m_Services;
 
     Microsoft::WRL::ComPtr<ID3D12Resource> m_DefaultBuffer;
     Microsoft::WRL::ComPtr<ID3D12Resource> m_UploadBuffer;

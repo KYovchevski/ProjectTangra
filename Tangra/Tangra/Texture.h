@@ -14,7 +14,8 @@ class Texture
 public:
     Texture();
 
-    Texture(std::wstring& a_FilePath, GraphicsCommandList& a_CommandList, ServiceLocator& a_ServiceLocator);
+    Texture(Microsoft::WRL::ComPtr<ID3D12Resource> a_Buffer, CD3DX12_GPU_DESCRIPTOR_HANDLE a_DescriptorHandle);
+
 
     CD3DX12_GPU_DESCRIPTOR_HANDLE GetGPUDescriptorHandle() const;
 

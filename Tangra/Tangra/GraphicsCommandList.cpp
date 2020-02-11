@@ -7,7 +7,10 @@
 #include "VertexBuffer.h"
 #include "IndexBuffer.h"
 #include "ServiceLocator.h"
+#include <DirectXTex.h>
 
+using namespace DirectX;
+using namespace Microsoft::WRL;
 
 GraphicsCommandList::GraphicsCommandList(ServiceLocator& a_ServiceLocator, D3D12_COMMAND_LIST_TYPE a_Type)
     : m_Type(a_Type)
@@ -21,8 +24,67 @@ GraphicsCommandList::GraphicsCommandList(ServiceLocator& a_ServiceLocator, D3D12
 
 }
 
+Texture GraphicsCommandList::CreateTextureFromFilePath(std::wstring& a_FilePath)
+{
+    ScratchImage scratchImage;
+    TexMetadata metaData;
+    LoadFromWICFile(a_FilePath.c_str(), WIC_FLAGS_NONE, &metaData, scratchImage);
+
+    DirectX::MakeSRGB(metaData.format);
+
+    auto bufferDesc = CD3DX12_RESOURCE_DESC::Tex2D(metaData.format, static_cast<UINT16>(metaData.width), static_cast<UINT16>(metaData.height), static_cast<UINT16>(metaData.arraySize));
+
+    auto device = m_Services.m_Device->GetDeviceObject();
+
+    ComPtr<ID3D12Resource> defaultBuffer, uploadBuffer;
+
+    {
+        CD3DX12_HEAP_PROPERTIES heapProperties;
+
+        heapProperties = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT);
+        device->CreateCommittedResource(&heapProperties, D3D12_HEAP_FLAG_NONE, &bufferDesc, D3D12_RESOURCE_STATE_COPY_DEST, nullptr, IID_PPV_ARGS(&defaultBuffer));
+
+        UINT64 intermediateSize = GetRequiredIntermediateSize(defaultBuffer.Get(), 0, 1);
+
+        heapProperties = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD);
+        auto intermediateDesc = CD3DX12_RESOURCE_DESC::Buffer(intermediateSize);
+        device->CreateCommittedResource(&heapProperties, D3D12_HEAP_FLAG_NONE, &intermediateDesc, D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&uploadBuffer));
+    }
+
+    m_IntermediateBuffers.push_back(uploadBuffer);
+
+    std::vector<D3D12_SUBRESOURCE_DATA> subresources;
+    const Image* images = scratchImage.GetImages();
+    for (size_t i = 0; i < scratchImage.GetImageCount(); i++)
+    {
+        D3D12_SUBRESOURCE_DATA subres;
+        subres.RowPitch = images[i].rowPitch;
+        subres.SlicePitch = images[i].slicePitch;
+        subres.pData = images[i].pixels;
+
+        subresources.push_back(subres);
+    }
+    UpdateSubresources(m_D3D12CommandList.Get(), defaultBuffer.Get(), uploadBuffer.Get(), 0, 0, 1, &subresources[0]);
+
+    auto barrier = CD3DX12_RESOURCE_BARRIER::Transition(defaultBuffer.Get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_COMMON);
+    ResourceBarrier(barrier);
+
+    CD3DX12_GPU_DESCRIPTOR_HANDLE descriptorHandle = m_Services.m_Device->AddSRV(defaultBuffer);
+    
+    return Texture(defaultBuffer, descriptorHandle);
+}
+
 void GraphicsCommandList::Reset()
 {
+    for (const auto intermediateBuffer : m_IntermediateBuffers)
+    {
+        ID3D12Resource* const ptr = intermediateBuffer.Get();
+        // i have no clue what i am doing, not even kidding
+        m_Services.m_Device->GetDeviceObject()->Evict(1, reinterpret_cast<ID3D12Pageable* const*>(&ptr));
+    }
+
+    m_IntermediateBuffers.clear();
+
     ThrowIfFailed(m_D3D12CommandAllocator->Reset());
     ThrowIfFailed(m_D3D12CommandList->Reset(m_D3D12CommandAllocator.Get(), nullptr));
 }

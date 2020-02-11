@@ -7,6 +7,8 @@
 #include "d3d12.h"
 #include "dxgi1_6.h"
 #include "Texture.h"
+#include "VertexBuffer.h"
+#include "IndexBuffer.h"
 
 #ifdef max
 #undef max
@@ -91,9 +93,9 @@ private:
     // d3d12 objects
     Microsoft::WRL::ComPtr<IDXGIFactory1> m_DXGIFactory;
 
-    std::unique_ptr<VertexBuffer> m_Buffer;
-    std::unique_ptr<IndexBuffer> m_IndexBuffer;
-    std::unique_ptr<Texture> m_Texture;
+    VertexBuffer m_Buffer;
+    IndexBuffer m_IndexBuffer;
+    Texture m_Texture;
 
     std::unique_ptr<PipelineState> m_MainPSO;
 
