@@ -17,8 +17,8 @@ GraphicsCommandList::GraphicsCommandList(ServiceLocator& a_ServiceLocator, D3D12
     , m_FenceValue(std::numeric_limits<UINT64>::max())
     , m_Services(a_ServiceLocator)
 {
+    // Create the command allocator and command list
     auto device = m_Services.m_Device->GetDeviceObject();
-
     ThrowIfFailed(device->CreateCommandAllocator(a_Type, IID_PPV_ARGS(&m_D3D12CommandAllocator)));
     ThrowIfFailed(device->CreateCommandList(0, a_Type, m_D3D12CommandAllocator.Get(), nullptr, IID_PPV_ARGS(&m_D3D12CommandList)));
 
@@ -26,6 +26,7 @@ GraphicsCommandList::GraphicsCommandList(ServiceLocator& a_ServiceLocator, D3D12
 
 Texture GraphicsCommandList::CreateTextureFromFilePath(std::wstring& a_FilePath)
 {
+    // Load the file using DirectXTex
     ScratchImage scratchImage;
     TexMetadata metaData;
     LoadFromWICFile(a_FilePath.c_str(), WIC_FLAGS_NONE, &metaData, scratchImage);
@@ -36,8 +37,8 @@ Texture GraphicsCommandList::CreateTextureFromFilePath(std::wstring& a_FilePath)
 
     auto device = m_Services.m_Device->GetDeviceObject();
 
+    // Create the default and upload buffers
     ComPtr<ID3D12Resource> defaultBuffer, uploadBuffer;
-
     {
         CD3DX12_HEAP_PROPERTIES heapProperties;
 
@@ -51,8 +52,10 @@ Texture GraphicsCommandList::CreateTextureFromFilePath(std::wstring& a_FilePath)
         device->CreateCommittedResource(&heapProperties, D3D12_HEAP_FLAG_NONE, &intermediateDesc, D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&uploadBuffer));
     }
 
+    // Add the upload buffer to the list of current intermediate buffers
     m_IntermediateBuffers.push_back(uploadBuffer);
 
+    // Describe the subresources update that is necessary
     std::vector<D3D12_SUBRESOURCE_DATA> subresources;
     const Image* images = scratchImage.GetImages();
     for (size_t i = 0; i < scratchImage.GetImageCount(); i++)
@@ -64,27 +67,32 @@ Texture GraphicsCommandList::CreateTextureFromFilePath(std::wstring& a_FilePath)
 
         subresources.push_back(subres);
     }
+    // NOTE: this is only taking a single of the subresource descs, might need to change it for mipmapping
     UpdateSubresources(m_D3D12CommandList.Get(), defaultBuffer.Get(), uploadBuffer.Get(), 0, 0, 1, &subresources[0]);
 
+    // Transition the reousce into a readable state
     auto barrier = CD3DX12_RESOURCE_BARRIER::Transition(defaultBuffer.Get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_COMMON);
     ResourceBarrier(barrier);
 
+    // Add the default buffer to the SRV descriptor heap and get the descriptor handle
     CD3DX12_GPU_DESCRIPTOR_HANDLE descriptorHandle = m_Services.m_Device->AddSRV(defaultBuffer);
-    
+
+    // Create the texture from the default buffer and the descriptorHandle
     return Texture(defaultBuffer, descriptorHandle);
 }
 
 void GraphicsCommandList::Reset()
 {
-    for (const auto intermediateBuffer : m_IntermediateBuffers)
+    // Free the intermediate resources since they are no longer needed
+    for (const ComPtr<ID3D12Resource> intermediateBuffer : m_IntermediateBuffers)
     {
         ID3D12Resource* const ptr = intermediateBuffer.Get();
-        // i have no clue what i am doing, not even kidding
-        m_Services.m_Device->GetDeviceObject()->Evict(1, reinterpret_cast<ID3D12Pageable* const*>(&ptr));
+        // Is this how you evict resources? IDK.
+        ThrowIfFailed(m_Services.m_Device->GetDeviceObject()->Evict(1, reinterpret_cast<ID3D12Pageable* const*>(&ptr)));
     }
 
     m_IntermediateBuffers.clear();
-
+    // Reset the command allocator and command list
     ThrowIfFailed(m_D3D12CommandAllocator->Reset());
     ThrowIfFailed(m_D3D12CommandList->Reset(m_D3D12CommandAllocator.Get(), nullptr));
 }
@@ -123,10 +131,11 @@ void GraphicsCommandList::SetVertexBuffer(VertexBuffer& a_Buffer,UINT a_Slot)
 
 void GraphicsCommandList::SetVertexBuffers(std::vector<VertexBuffer> a_Buffers, UINT a_StartSlot)
 {
+    // Get all the buffer views before setting them
     std::vector<D3D12_VERTEX_BUFFER_VIEW> bufferViews;
-    for (VertexBuffer buffer : a_Buffers)
+    for (VertexBuffer& buffer : a_Buffers)
     {
-        bufferViews.push_back(a_Buffers[0].GetVertexBufferView());
+        bufferViews.push_back(buffer.GetVertexBufferView());
     }
     m_D3D12CommandList->IASetVertexBuffers(a_StartSlot, static_cast<UINT>(bufferViews.size()), &bufferViews[0]);
 }

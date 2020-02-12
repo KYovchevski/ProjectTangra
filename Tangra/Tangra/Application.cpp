@@ -397,6 +397,8 @@ void Application::LoadPSOs()
     initData.m_RootParameters.back().InitAsConstants(sizeof(DirectX::XMMATRIX) / 4, 0, 0, D3D12_SHADER_VISIBILITY_VERTEX);
     initData.m_RootParameters.emplace_back();
     initData.m_RootParameters.back().InitAsDescriptorTable(1u, &descriptorRange, D3D12_SHADER_VISIBILITY_PIXEL);
+    initData.m_RootParameters.emplace_back();
+    initData.m_RootParameters.back().InitAsShaderResourceView(0, 0, D3D12_SHADER_VISIBILITY_VERTEX);
 
     initData.m_StaticSamplers.emplace_back();
     initData.m_StaticSamplers.back().RegisterSpace = 1;
@@ -485,9 +487,22 @@ void Application::Render()
     mat *= sm::Matrix::CreateRotationZ(DirectX::XMConvertToRadians(f));
     //mat *= sm::Matrix::CreateRotationY(180.0f);
     mat *= sm::Matrix::CreateScale(sm::Vector3(400.0f));
-    
+
+    struct vertex
+    {
+        DirectX::XMFLOAT3 p;
+        DirectX::XMFLOAT2 t;
+    };
+
+    vertex v1, v2, v3;
+    v1 = vertex{ DirectX::XMFLOAT3(0.5f, 0.5f, 0.5f), DirectX::XMFLOAT2(0.0f, 0.0f) };
+    v2 = vertex{ DirectX::XMFLOAT3(-0.5f, -0.5f, 0.5f), DirectX::XMFLOAT2(1.0f, 1.0f) };
+    v3 = vertex{ DirectX::XMFLOAT3(-0.5f, 0.5f, 0.5f) , DirectX::XMFLOAT2(1.0f, 0.0f) };
+
+    std::vector<vertex> vertices = { v1, v2, v3 };
 
     commandList->SetRoot32BitConstant(0, mat);
+    commandList->SetStructuredBuffer(2, vertices);
     //commandList->GetCommandListPtr()->SetGraphicsRoot32BitConstants(0, sizeof(mat) / 4, &mat, 0);
     
     commandList->DrawIndexed(m_IndexBuffer.GetNumIndices());

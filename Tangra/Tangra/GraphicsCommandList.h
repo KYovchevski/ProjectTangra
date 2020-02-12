@@ -72,6 +72,9 @@ public:
     // Set a struct as a ConstantBuffer root parameter. Make sure the 16-byte padding and variable order are correct.
     template<typename T>
     void SetRoot32BitConstant(UINT a_RootIndex, T& a_Data, UINT a_OffsetInData = 0);
+
+    template<typename T>
+    void SetStructuredBuffer(UINT a_RootIndex, std::vector<T>& a_Buffer);
     // Bind specified texture to the pipeline at the specified root parameter index.
     void SetTexture(UINT a_RootSignatureIndex, Texture& a_Texture);
 
@@ -213,5 +216,32 @@ template <typename T>
 void GraphicsCommandList::SetRoot32BitConstant(UINT a_RootIndex, T& a_Data, UINT a_OffsetInData)
 {
     m_D3D12CommandList->SetGraphicsRoot32BitConstants(a_RootIndex, sizeof(T) / 4, &a_Data, a_OffsetInData);
+}
+
+template <typename T>
+void GraphicsCommandList::SetStructuredBuffer(UINT a_RootIndex, std::vector<T>& a_Buffer)
+{
+    D3D12_GPU_VIRTUAL_ADDRESS gpuAdress;
+
+    auto device = m_Services.m_Device->GetDeviceObject();
+
+    CD3DX12_RESOURCE_DESC resDesc = CD3DX12_RESOURCE_DESC::Buffer(a_Buffer.size() * sizeof(T));
+    CD3DX12_HEAP_PROPERTIES heapProperties = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD);
+    Microsoft::WRL::ComPtr<ID3D12Resource> uploadBuffer;
+    
+    device->CreateCommittedResource(&heapProperties, D3D12_HEAP_FLAG_NONE, &resDesc,
+        D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&uploadBuffer));
+
+    gpuAdress = uploadBuffer->GetGPUVirtualAddress();
+
+    void* bufferData = nullptr;
+
+    uploadBuffer->Map(0, nullptr, &bufferData);
+
+    memcpy(bufferData, &a_Buffer[0], sizeof(T) * a_Buffer.size());
+
+    m_IntermediateBuffers.push_back(uploadBuffer);
+
+    m_D3D12CommandList->SetGraphicsRootShaderResourceView(a_RootIndex, gpuAdress);
 }
 

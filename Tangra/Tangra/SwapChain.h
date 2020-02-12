@@ -24,13 +24,18 @@ public:
 
     void SetClearColor(DirectX::SimpleMath::Color a_NewClearColor);
 
+    // Clears the current back buffer
     void ClearBackBuffer(GraphicsCommandList& a_CommandList);
+    // Clear the depth stencil buffer
     void ClearDSV(GraphicsCommandList& a_CommandList);
 
+    // Swap the buffers
     void Present();
 
+    // Get the handle to the current back buffer
     D3D12_CPU_DESCRIPTOR_HANDLE GetCurrentRTVHandle();
     Microsoft::WRL::ComPtr<ID3D12Resource> GetCurrentBackbufferResource();
+    // Get the handle to the Depth Stencil buffer
     D3D12_CPU_DESCRIPTOR_HANDLE GetDSVHandle();
 
     DXGI_FORMAT GetDepthStencilFormat() const;
@@ -50,8 +55,7 @@ private:
     Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> m_RTVDescriptorHeap;
 
     DirectX::SimpleMath::Color m_ClearColor;
-
-    
+        
     Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> m_DSVDescriptorHeap;
     Microsoft::WRL::ComPtr<ID3D12Resource> m_DepthStencilBuffer;
 };

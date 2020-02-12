@@ -12,39 +12,46 @@ using namespace Microsoft::WRL;
 
 SwapChain::SwapChain(ServiceLocator& a_ServiceLocator, HWND a_HWND, uint8_t a_NumBackBuffers, DXGI_FORMAT a_BackBufferFormat)
     : m_Services(a_ServiceLocator)
+    , m_BackBufferFormat(a_BackBufferFormat)
+    , m_CurrentBackBuffer(0)
+    // The depth scencil format is initially unknown, until CreateDepthStencilBuffer is called
+    , m_DepthStencilFormat(DXGI_FORMAT_UNKNOWN)
 {
     m_BackBufferFormat = a_BackBufferFormat;
     m_NumBackBuffers = a_NumBackBuffers;
     m_CurrentBackBuffer = 0;
     m_DepthStencilFormat = DXGI_FORMAT_UNKNOWN;
 
-    m_CommandQueue = a_ServiceLocator.m_Device->GetCommandQueue();
+    // Get the command queue as it's needed for swap chain creation
+    m_CommandQueue = a_ServiceLocator.m_Device->GetCommandQueue(D3D12_COMMAND_LIST_TYPE_DIRECT);
 
+    // Fill out the swap chain desc and create the swap chain
     Application* app = m_Services.m_App.get();
     DXGI_SWAP_CHAIN_DESC swapChainDesc = {};
-    {
-        swapChainDesc.BufferDesc.Width = app->GetScreenWidth();
-        swapChainDesc.BufferDesc.Height = app->GetScreenHeight();
-        swapChainDesc.BufferDesc.RefreshRate.Numerator = 60;
-        swapChainDesc.BufferDesc.RefreshRate.Denominator = 1;
-        swapChainDesc.BufferDesc.Format = a_BackBufferFormat;
-        swapChainDesc.BufferDesc.ScanlineOrdering = DXGI_MODE_SCANLINE_ORDER_UNSPECIFIED;
-        swapChainDesc.BufferDesc.Scaling = DXGI_MODE_SCALING_UNSPECIFIED;
+    
+    swapChainDesc.BufferDesc.Width = app->GetScreenWidth();
+    swapChainDesc.BufferDesc.Height = app->GetScreenHeight();
+    // Might want to make the refresh rate depends on hardware?
+    swapChainDesc.BufferDesc.RefreshRate.Numerator = 60;
+    swapChainDesc.BufferDesc.RefreshRate.Denominator = 1;
+    swapChainDesc.BufferDesc.Format = a_BackBufferFormat;
+    swapChainDesc.BufferDesc.ScanlineOrdering = DXGI_MODE_SCANLINE_ORDER_UNSPECIFIED;
+    swapChainDesc.BufferDesc.Scaling = DXGI_MODE_SCALING_UNSPECIFIED;
 
-        swapChainDesc.SampleDesc.Count = 1;
-        swapChainDesc.SampleDesc.Quality = 0;
+    swapChainDesc.SampleDesc.Count = 1;
+    swapChainDesc.SampleDesc.Quality = 0;
 
-        swapChainDesc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
+    swapChainDesc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
 
-        swapChainDesc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;
+    swapChainDesc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;
 
-        swapChainDesc.Windowed = true;
+    swapChainDesc.Windowed = true;
 
-        swapChainDesc.BufferCount = a_NumBackBuffers;
-        swapChainDesc.OutputWindow = a_HWND;
+    swapChainDesc.BufferCount = a_NumBackBuffers;
+    swapChainDesc.OutputWindow = a_HWND;
 
-        ThrowIfFailed(app->GetDXGIFactory()->CreateSwapChain(m_CommandQueue->GetCommandQueueObject().Get(), &swapChainDesc, &m_DXGISwapChain));
-    }
+    ThrowIfFailed(app->GetDXGIFactory()->CreateSwapChain(m_CommandQueue->GetCommandQueueObject().Get(), &swapChainDesc, &m_DXGISwapChain));
+    
 }
 
 DXGI_FORMAT SwapChain::GetBackBufferFormat() const
@@ -76,8 +83,8 @@ void SwapChain::CreateDescriptorHeaps()
     dsvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_DSV;
 
     auto d3d12Device = m_Services.m_Device->GetDeviceObject();
-    d3d12Device->CreateDescriptorHeap(&rtvHeapDesc, IID_PPV_ARGS(&m_RTVDescriptorHeap));
-    d3d12Device->CreateDescriptorHeap(&dsvHeapDesc, IID_PPV_ARGS(&m_DSVDescriptorHeap));
+    ThrowIfFailed(d3d12Device->CreateDescriptorHeap(&rtvHeapDesc, IID_PPV_ARGS(&m_RTVDescriptorHeap)));
+    ThrowIfFailed(d3d12Device->CreateDescriptorHeap(&dsvHeapDesc, IID_PPV_ARGS(&m_DSVDescriptorHeap)));
 }
 
 void SwapChain::CreateRenderTargets()
@@ -127,17 +134,17 @@ void SwapChain::CreateDepthStencilBuffer(GraphicsCommandList& a_CommandList, DXG
 
     D3D12_CLEAR_VALUE clearValue;
     clearValue.Format = dsvResourceDesc.Format;
-    clearValue.DepthStencil.Depth = 1;
+    clearValue.DepthStencil.Depth = 1.0f;
     clearValue.DepthStencil.Stencil = 0;
 
     auto heapProperties = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT);
     ThrowIfFailed(device->GetDeviceObject()->CreateCommittedResource(&heapProperties, D3D12_HEAP_FLAG_NONE,
         &dsvResourceDesc, D3D12_RESOURCE_STATE_COMMON, &clearValue, IID_PPV_ARGS(&m_DepthStencilBuffer)));
+    device->GetDeviceObject()->CreateDepthStencilView(m_DepthStencilBuffer.Get(), nullptr, GetDSVHandle());
 
     m_DepthStencilBuffer->SetName(L"Depth Stencil Buffer");
 
     auto barrier = CD3DX12_RESOURCE_BARRIER::Transition(m_DepthStencilBuffer.Get(), D3D12_RESOURCE_STATE_COMMON, D3D12_RESOURCE_STATE_DEPTH_WRITE);
-    device->GetDeviceObject()->CreateDepthStencilView(m_DepthStencilBuffer.Get(), nullptr, GetDSVHandle());
     a_CommandList.ResourceBarrier(barrier);
 }
 
@@ -151,13 +158,12 @@ void SwapChain::ClearBackBuffer(GraphicsCommandList& a_CommandList)
     auto currentBackBuffer = GetCurrentBackbufferResource();
     auto currentRTV = GetCurrentRTVHandle();
 
-    auto cmdList = a_CommandList.GetCommandListPtr();
 
+    // The render target resource needs to be transitioned to render target state before it can be cleared
     auto barrier = CD3DX12_RESOURCE_BARRIER::Transition(currentBackBuffer.Get(), D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET);
-    cmdList->ResourceBarrier(1, &barrier);
+    a_CommandList.ResourceBarrier(barrier);
 
-    cmdList->ClearRenderTargetView(currentRTV, m_ClearColor, 0, nullptr);
-
+    a_CommandList.GetCommandListPtr()->ClearRenderTargetView(currentRTV, m_ClearColor, 0, nullptr);
 }
 
 void SwapChain::ClearDSV(GraphicsCommandList& a_CommandList)
@@ -168,10 +174,10 @@ void SwapChain::ClearDSV(GraphicsCommandList& a_CommandList)
 void SwapChain::Present()
 {
     auto currentBackBuffer = GetCurrentBackbufferResource();
-    auto currentRTV = GetCurrentRTVHandle();
 
     auto cmdList = m_CommandQueue->GetCommandList();
 
+    // The current back buffer needs to be transitioned into common/present state to be used displayed
     auto barrier = CD3DX12_RESOURCE_BARRIER::Transition(currentBackBuffer.Get(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT);
 
     cmdList->ResourceBarrier(barrier);
@@ -182,8 +188,6 @@ void SwapChain::Present()
 
     m_CurrentBackBuffer = (m_CurrentBackBuffer + 1) % m_NumBackBuffers;
 
-    // for now, flush the command queue after each frame to keep it easy
-    //m_CommandQueue->Flush();
 }
 
 D3D12_CPU_DESCRIPTOR_HANDLE SwapChain::GetCurrentRTVHandle()
