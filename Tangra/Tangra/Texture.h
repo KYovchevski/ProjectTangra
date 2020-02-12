@@ -7,6 +7,8 @@
 
 class GraphicsCommandList;
 
+// Wrapper around a D3D12Resouce that is used as a texture
+// Use a command list instance to create a texture
 
 class Texture
     : public RenderResource
@@ -14,6 +16,7 @@ class Texture
 public:
     Texture();
 
+    // Used by command list class
     Texture(Microsoft::WRL::ComPtr<ID3D12Resource> a_Buffer, CD3DX12_GPU_DESCRIPTOR_HANDLE a_DescriptorHandle);
 
 

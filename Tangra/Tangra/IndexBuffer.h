@@ -7,13 +7,17 @@
 #include "iostream"
 
 class GraphicsCommandList;
-
+///@brief 
+///Wrapper class around a D3D12 resource that is used as an index buffer.
+///Use a command list instance to create an index buffer.
+///
 class IndexBuffer :
     public RenderResource
 {
 public:
 
     IndexBuffer();
+    //Used by command list class
     IndexBuffer(Microsoft::WRL::ComPtr<ID3D12Resource> a_Buffer, D3D12_INDEX_BUFFER_VIEW a_BufferView, unsigned int a_NumIndices)
         : RenderResource(a_Buffer)
         , m_IndexBufferView(a_BufferView)

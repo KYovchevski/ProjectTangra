@@ -45,13 +45,16 @@ public:
         bool m_CreateDebugConsole = true;
     };
 
+    // Application creation is done via a static function due to the dependency of DirectX 12 on WndProc
     static void Create(InitInfo& a_InitInfo);
     static void Destroy();
 
     static void Run();
 
+    // Called in the WindowsCallback to process the events
     LRESULT ProcessCallback(HWND a_HWND, UINT a_Message, WPARAM a_WParam, LPARAM a_LParam);
 
+    // Initialization code for DirectX 12 and the window
     void Initialize(InitInfo& a_InitInfo);
 
     Microsoft::WRL::ComPtr<IDXGIFactory1> GetDXGIFactory();
@@ -75,16 +78,17 @@ private:
 
     Application();
 
+    // Create a system console to use for debug output
     void CreateDebugConsole();
     HWND CreateWindowInstance(WindowInfo& a_WindowInfo);
     void CreateDXGIFactory();
+    // Gets the graphics adapter with the most dedicated VRAM
     Microsoft::WRL::ComPtr<IDXGIAdapter4> QueryGraphicsAdapters();
+
+    // Function to hide the code used for creation of the PSOs since currently it's very bulky
     void LoadPSOs();
 
     void Render();
-/*
-    static Application* ms_Instance;
-    static bool ms_Initialized;*/
 
     // renderer variables
     uint32_t m_ScreenWidth;

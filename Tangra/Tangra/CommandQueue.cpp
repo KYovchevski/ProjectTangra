@@ -14,15 +14,15 @@ CommandQueue::CommandQueue(ServiceLocator& a_ServiceLocator, D3D12_COMMAND_LIST_
     : m_Services(a_ServiceLocator)
     , m_Type(a_Type)
 {
-    D3D12_COMMAND_QUEUE_DESC directCommandQueueDesc;
-    directCommandQueueDesc.Type = a_Type;
-    directCommandQueueDesc.Flags = a_Flags;
-    directCommandQueueDesc.NodeMask = 0;
-    directCommandQueueDesc.Priority = D3D12_COMMAND_QUEUE_PRIORITY_NORMAL;
+    D3D12_COMMAND_QUEUE_DESC commandQueueDesc;
+    commandQueueDesc.Type = a_Type;
+    commandQueueDesc.Flags = a_Flags;
+    commandQueueDesc.NodeMask = 0;
+    commandQueueDesc.Priority = D3D12_COMMAND_QUEUE_PRIORITY_NORMAL;
 
     ComPtr<ID3D12Device> device = m_Services.m_Device->GetDeviceObject();
 
-    ThrowIfFailed(device->CreateCommandQueue(&directCommandQueueDesc, IID_PPV_ARGS(&m_D3D12CommandQueue)));
+    ThrowIfFailed(device->CreateCommandQueue(&commandQueueDesc, IID_PPV_ARGS(&m_D3D12CommandQueue)));
 
     m_FenceValue = 0;
     ThrowIfFailed(device->CreateFence(m_FenceValue, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&m_D3D12Fence)));
@@ -33,17 +33,18 @@ CommandQueue::~CommandQueue()
 
 }
 
-Microsoft::WRL::ComPtr<ID3D12CommandQueue> CommandQueue::GetCommandQueueObject()
+ComPtr<ID3D12CommandQueue> CommandQueue::GetCommandQueueObject()
 {
     return m_D3D12CommandQueue;
 }
 
 GraphicsCommandList* CommandQueue::GetCommandList()
 {
-    UINT64 completedValue = m_D3D12Fence->GetCompletedValue();
-
+    // Check if any of the used command lists have been finished based on the fence's completed value
     while (!m_UsedCommandLists.empty())
     {
+        UINT64 completedValue = m_D3D12Fence->GetCompletedValue();
+        // If the command list has been executed completely, reset it and move it to the list of available lists
         if (m_UsedCommandLists.front()->GetFenceValue() <= completedValue)
         {
             GraphicsCommandList* cmdList = m_UsedCommandLists.front();
@@ -55,6 +56,7 @@ GraphicsCommandList* CommandQueue::GetCommandList()
         else break;
     }
 
+    // If there are no available command lists, create a new one
     if (m_AvailableCommandLists.empty())
     {
         m_CommandLists.emplace_back(std::make_unique<GraphicsCommandList>(m_Services, m_Type));
@@ -63,6 +65,7 @@ GraphicsCommandList* CommandQueue::GetCommandList()
         m_AvailableCommandLists.push(m_CommandLists.back().get());
     }
 
+    // Get the command list at the front of the queue and return it.
     GraphicsCommandList* cmdList = m_AvailableCommandLists.front();
     m_AvailableCommandLists.pop();
     return cmdList;
@@ -70,17 +73,18 @@ GraphicsCommandList* CommandQueue::GetCommandList()
 
 void CommandQueue::ExecuteCommandList(GraphicsCommandList& a_CommandList)
 {
-
+    // Close the command list and execute it
     a_CommandList.Close();
 
     ID3D12CommandList* cmdLists[] = { a_CommandList.GetCommandListPtr().Get() };
 
     m_D3D12CommandQueue->ExecuteCommandLists(1, cmdLists);
 
+    // Increment the fence value and use it to signal the command queue
     ++m_FenceValue;
     m_D3D12CommandQueue->Signal(m_D3D12Fence.Get(), m_FenceValue);
-    //m_D3D12Fence->Signal(m_FenceValue);
 
+    // Set the fence value that the command list is to be associated with and mark it as in-use
     a_CommandList.SetFenceValue(m_FenceValue);
     m_UsedCommandLists.push(&a_CommandList);
 }

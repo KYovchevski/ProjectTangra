@@ -4,6 +4,8 @@
 #include <string>
 struct ServiceLocator;
 
+// Base class for all resource wrappers to give them common functionality such as naming
+
 class RenderResource
 {
 public:
@@ -17,6 +19,5 @@ public:
 protected:
 
     Microsoft::WRL::ComPtr<ID3D12Resource> m_DefaultBuffer;
-    Microsoft::WRL::ComPtr<ID3D12Resource> m_UploadBuffer;
 };
 

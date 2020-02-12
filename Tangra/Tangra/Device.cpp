@@ -42,7 +42,7 @@ void Device::Initialize()
     m_RTVDescriptorSize = m_D3D12Device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
     m_DSVDescriptorSize = m_D3D12Device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_DSV);
 
-
+    // Create the SRV descriptor heap. Capacity is currently hardcoded for convenience.
     m_SRVHeapCapacity = 128;
 
     D3D12_DESCRIPTOR_HEAP_DESC heapDesc = {};
@@ -53,6 +53,7 @@ void Device::Initialize()
 
     ThrowIfFailed(m_D3D12Device->CreateDescriptorHeap(&heapDesc, IID_PPV_ARGS(&m_SRVHeap)));
 
+    // Create all the command queues
     m_DirectCommandQueue = std::make_unique<CommandQueue>(m_Services, D3D12_COMMAND_LIST_TYPE_DIRECT);
     m_ComputeCommandQueue= std::make_unique<CommandQueue>(m_Services, D3D12_COMMAND_LIST_TYPE_COMPUTE);
     m_CopyCommandQueue = std::make_unique<CommandQueue>(m_Services, D3D12_COMMAND_LIST_TYPE_COPY);
@@ -61,21 +62,22 @@ void Device::Initialize()
 
 CD3DX12_GPU_DESCRIPTOR_HANDLE Device::AddSRV(ComPtr<ID3D12Resource> a_SRVResource)
 {
-    CD3DX12_CPU_DESCRIPTOR_HANDLE rHandle = CD3DX12_CPU_DESCRIPTOR_HANDLE(m_SRVHeap->GetCPUDescriptorHandleForHeapStart());
-
+    // Check if the heap has space in it
     if (m_NumSRVHeapEntries == m_SRVHeapCapacity)
     {
-        std::cout << "ERROR: SRV Descriptor heap full, cannot allocated texture" << std::endl;
+        std::cout << "ERROR: SRV Descriptor heap full, cannot allocate texture" << std::endl;
         abort();
     }
 
+    // Create a Shader Resource View for the resource
+    CD3DX12_CPU_DESCRIPTOR_HANDLE rHandle = CD3DX12_CPU_DESCRIPTOR_HANDLE(m_SRVHeap->GetCPUDescriptorHandleForHeapStart());
     rHandle.Offset(m_NumSRVHeapEntries, m_CBVDescriptorSize);
-
     m_D3D12Device->CreateShaderResourceView(a_SRVResource.Get(), nullptr, rHandle);
-    
 
+    // Get the GPU handle for the resource
     auto gpuHandle = CD3DX12_GPU_DESCRIPTOR_HANDLE(m_SRVHeap->GetGPUDescriptorHandleForHeapStart()).Offset(m_NumSRVHeapEntries, m_CBVDescriptorSize);
 
+    // Increment the SRV entries counter and return the GPU descriptor handle.
     ++m_NumSRVHeapEntries;
     return gpuHandle;
 }

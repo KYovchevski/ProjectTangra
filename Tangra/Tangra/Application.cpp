@@ -92,7 +92,8 @@ void Application::Initialize(InitInfo& a_InitInfo)
     WindowInfo wInfo = {};
     wInfo.m_ClassName = L"TangraRenderer";
     wInfo.m_WndProc = &WindowsCallback;
-    wInfo.m_HInstance = a_InitInfo.m_HInstance;
+    //wInfo.m_HInstance = a_InitInfo.m_HInstance;
+    wInfo.m_HInstance = (HINSTANCE)GetModuleHandle(NULL);
     wInfo.m_Height = a_InitInfo.m_Height;
     wInfo.m_Width = a_InitInfo.m_Width;
     wInfo.m_WindowTitle = a_InitInfo.m_WindowTitle;
