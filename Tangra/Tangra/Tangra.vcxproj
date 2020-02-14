@@ -27,6 +27,7 @@
     <ClCompile Include="IndexBuffer.cpp" />
     <ClCompile Include="PipelineState.cpp" />
     <ClCompile Include="RenderResource.cpp" />
+    <ClCompile Include="ResourceStateTracker.cpp" />
     <ClCompile Include="SimpleMath.cpp" />
     <ClCompile Include="SwapChain.cpp" />
     <ClCompile Include="Texture.cpp" />
@@ -42,6 +43,7 @@
     <ClInclude Include="IndexBuffer.h" />
     <ClInclude Include="PipelineState.h" />
     <ClInclude Include="RenderResource.h" />
+    <ClInclude Include="ResourceStateTracker.h" />
     <ClInclude Include="ServiceLocator.h" />
     <ClInclude Include="SimpleMath.h" />
     <ClInclude Include="SwapChain.h" />
@@ -154,6 +156,7 @@
       <TreatWarningAsError>true</TreatWarningAsError>
       <AdditionalIncludeDirectories>$(SolutionDir)\Dependencies\DirectXTex\Inc;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <LanguageStandard>stdcpp14</LanguageStandard>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -187,6 +190,7 @@
       <AdditionalIncludeDirectories>$(SolutionDir)\Dependencies\DirectXTex\Inc;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <TreatWarningAsError>true</TreatWarningAsError>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <LanguageStandard>stdcpp14</LanguageStandard>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>

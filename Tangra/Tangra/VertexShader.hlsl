@@ -12,16 +12,6 @@ struct VS_OUT
     float4 Position : SV_POSITION;
 };
 
-struct Light
-{
-    float3 position;
-    float attenuation;
-    //---------- 16-bytes
-    float3 color;
-    float padding;
-    //---------- 16-bytes
-};
-
 struct Vertex
 {
     float3 pos;
@@ -29,7 +19,6 @@ struct Vertex
 };
 
 StructuredBuffer<Vertex> VerticesSB : register(t0, space0);
-StructuredBuffer<Light> LightsSB : register(t1, space0);
 
 VS_OUT main(uint vertexID : SV_VertexID) 
 {

@@ -44,6 +44,9 @@ GraphicsCommandList* CommandQueue::GetCommandList()
     while (!m_UsedCommandLists.empty())
     {
         UINT64 completedValue = m_D3D12Fence->GetCompletedValue();
+
+        std::printf("%i %i\n", static_cast<UINT>(completedValue), static_cast<UINT>(m_UsedCommandLists.front()->GetFenceValue()));
+
         // If the command list has been executed completely, reset it and move it to the list of available lists
         if (m_UsedCommandLists.front()->GetFenceValue() <= completedValue)
         {
@@ -55,6 +58,8 @@ GraphicsCommandList* CommandQueue::GetCommandList()
         }
         else break;
     }
+
+    //std::cout << m_AvailableCommandLists.size() << std::endl;
 
     // If there are no available command lists, create a new one
     if (m_AvailableCommandLists.empty())

@@ -72,7 +72,7 @@ public:
     // Set a struct as a ConstantBuffer root parameter. Make sure the 16-byte padding and variable order are correct.
     template<typename T>
     void SetRoot32BitConstant(UINT a_RootIndex, T& a_Data, UINT a_OffsetInData = 0);
-
+    // Set a list of structs as a StructuredBuffer at the specified root signature index
     template<typename T>
     void SetStructuredBuffer(UINT a_RootIndex, std::vector<T>& a_Buffer);
     // Bind specified texture to the pipeline at the specified root parameter index.
@@ -221,27 +221,27 @@ void GraphicsCommandList::SetRoot32BitConstant(UINT a_RootIndex, T& a_Data, UINT
 template <typename T>
 void GraphicsCommandList::SetStructuredBuffer(UINT a_RootIndex, std::vector<T>& a_Buffer)
 {
-    D3D12_GPU_VIRTUAL_ADDRESS gpuAdress;
 
+    // Create upload buffer for the structured buffer
     auto device = m_Services.m_Device->GetDeviceObject();
-
     CD3DX12_RESOURCE_DESC resDesc = CD3DX12_RESOURCE_DESC::Buffer(a_Buffer.size() * sizeof(T));
     CD3DX12_HEAP_PROPERTIES heapProperties = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD);
     Microsoft::WRL::ComPtr<ID3D12Resource> uploadBuffer;
-    
     device->CreateCommittedResource(&heapProperties, D3D12_HEAP_FLAG_NONE, &resDesc,
         D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&uploadBuffer));
-
-    gpuAdress = uploadBuffer->GetGPUVirtualAddress();
-
+    
+    // Get pointer to upload buffer's CPU memory and copy the contents of a_Buffer there
     void* bufferData = nullptr;
-
     uploadBuffer->Map(0, nullptr, &bufferData);
-
     memcpy(bufferData, &a_Buffer[0], sizeof(T) * a_Buffer.size());
 
-    m_IntermediateBuffers.push_back(uploadBuffer);
+
+    // Set the upload buffer as a shader resource and mark the upload buffer as an intermediate resource
+    D3D12_GPU_VIRTUAL_ADDRESS gpuAdress;
+    gpuAdress = uploadBuffer->GetGPUVirtualAddress();
 
     m_D3D12CommandList->SetGraphicsRootShaderResourceView(a_RootIndex, gpuAdress);
+
+    m_IntermediateBuffers.push_back(uploadBuffer);
 }
 
