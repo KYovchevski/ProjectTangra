@@ -25,6 +25,7 @@ class SwapChain;
 class VertexBuffer;
 class PipelineState;
 class IndexBuffer;
+struct Mesh;
 
 LRESULT CALLBACK WindowsCallback(HWND a_HWND, UINT a_Message, WPARAM a_WParam, LPARAM a_LParam);
 
@@ -100,6 +101,8 @@ private:
     VertexBuffer m_Buffer;
     IndexBuffer m_IndexBuffer;
     Texture m_Texture;
+
+    Mesh* m_FoxMesh;
 
     std::unique_ptr<PipelineState> m_MainPSO;
 

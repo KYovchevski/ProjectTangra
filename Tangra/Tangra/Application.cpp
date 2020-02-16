@@ -7,6 +7,7 @@
 #include "PipelineState.h"
 #include "VertexBuffer.h"
 #include "IndexBuffer.h"
+#include "ModelLoader.h"
 
 #include "ServiceLocator.h"
 
@@ -157,7 +158,6 @@ void Application::Initialize(InitInfo& a_InitInfo)
     std::cout << "Creating depth stencil buffer" << std::endl;
     g_ServiceLocator.m_SwapChain->CreateDepthStencilBuffer(*commandList);
 
-
     std::cout << "Creating triangle vertex buffer" << std::endl;
 
     struct vertex
@@ -180,7 +180,7 @@ void Application::Initialize(InitInfo& a_InitInfo)
     //m_IndexBuffer = std::make_unique<IndexBuffer>(g_ServiceLocator, indices, *commandList);
     m_IndexBuffer = commandList->CreateIndexBuffer(indices);
 
-    std::wstring path = L"Textures/debugTex.png";
+    std::wstring path = L"Models/Fox/glTF/Texture.png";
 
     m_Texture = commandList->CreateTextureFromFilePath(path);
 
@@ -204,6 +204,10 @@ void Application::Initialize(InitInfo& a_InitInfo)
 
     commandQueue->ExecuteCommandList(*commandList);
     commandQueue->Flush();
+
+    g_ServiceLocator.m_ModelLoader = std::make_unique<ModelLoader>(g_ServiceLocator);
+
+    m_FoxMesh = &g_ServiceLocator.m_ModelLoader->LoadMeshFromGLTF("Models/Fox/glTF/Fox.gltf");
 
     std::cout << "Initialization completed." << std::endl;
     ::ShowWindow(m_HWND, SW_SHOW);
@@ -468,25 +472,28 @@ void Application::Render()
     commandList->SetViewport(m_Viewport);
     commandList->SetScissorRect(m_ScissorRect);
     commandList->SetRenderTargets(std::vector<D3D12_CPU_DESCRIPTOR_HANDLE>{g_ServiceLocator.m_SwapChain->GetCurrentRTVHandle()}, TRUE, g_ServiceLocator.m_SwapChain->GetDSVHandle());
-    commandList->SetVertexBuffer(m_Buffer);
-    commandList->SetIndexBuffer(m_IndexBuffer);
+    commandList->SetVertexBuffer(m_FoxMesh->m_VertexBuffer);
+    //commandList->SetIndexBuffer(m_IndexBuffer);
     commandList->SetDescriptorHeap(srvHeap);
     commandList->SetTexture(1, m_Texture);
 
     namespace sm = DirectX::SimpleMath;
 
+    namespace dx = DirectX;
+
     sm::Matrix mat;
+    
 
     static float f = 0.0f;
     f += 3.0f;
 
     mat = sm::Matrix::Identity;
 
+    //mat *= sm::Matrix::CreateRotationZ(DirectX::XMConvertToRadians(f));
+    mat *= sm::Matrix::CreateRotationY(DirectX::XMConvertToRadians(f));
+    mat *= sm::Matrix::CreateScale(sm::Vector3(03.0f));
+    mat *= sm::Matrix::CreateTranslation(sm::Vector3(0.0f, -250.0f, 10000.0f));
     mat *= sm::Matrix::CreateOrthographic(float(m_ScreenWidth), float(m_ScreenHeight), 0.00001f, 100000.0f);
-    //mat *= sm::Matrix::CreateTranslation(sm::Vector3(0.0f, 0.0f, 0.0f));
-    mat *= sm::Matrix::CreateRotationZ(DirectX::XMConvertToRadians(f));
-    //mat *= sm::Matrix::CreateRotationY(180.0f);
-    mat *= sm::Matrix::CreateScale(sm::Vector3(400.0f));
 
     struct vertex
     {
@@ -505,8 +512,8 @@ void Application::Render()
     commandList->SetStructuredBuffer(2, vertices);
     //commandList->GetCommandListPtr()->SetGraphicsRoot32BitConstants(0, sizeof(mat) / 4, &mat, 0);
     
-    commandList->DrawIndexed(m_IndexBuffer.GetNumIndices());
-
+    //commandList->DrawIndexed(m_IndexBuffer.GetNumIndices());
+    commandList->Draw(m_FoxMesh->m_VertexBuffer.GetNumVertices());
     directCommandQueue->ExecuteCommandList(*commandList);
 
     g_ServiceLocator.m_SwapChain->Present();

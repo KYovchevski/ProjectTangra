@@ -5,7 +5,7 @@
 #include "GraphicsCommandList.h"
 #include "ServiceLocator.h"
 
-
+#include "DirectXMath.h"
 #include <iostream>
 
 using namespace Microsoft::WRL;
@@ -30,7 +30,6 @@ CommandQueue::CommandQueue(ServiceLocator& a_ServiceLocator, D3D12_COMMAND_LIST_
 
 CommandQueue::~CommandQueue()
 {
-
 }
 
 ComPtr<ID3D12CommandQueue> CommandQueue::GetCommandQueueObject()

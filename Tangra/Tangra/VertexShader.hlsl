@@ -20,10 +20,10 @@ struct Vertex
 
 StructuredBuffer<Vertex> VerticesSB : register(t0, space0);
 
-VS_OUT main(uint vertexID : SV_VertexID) 
+VS_OUT main(float3 pos : POSITION, float2 tex : TEXCOORD) 
 {
     VS_OUT vout;
-    vout.Position = mul(MatCB.MVP, float4(VerticesSB[vertexID].pos, 1));
-    vout.TexCoords = VerticesSB[vertexID].tex;
+    vout.Position = mul(MatCB.MVP, float4(pos, 1));
+    vout.TexCoords = tex;
     return vout;
 }

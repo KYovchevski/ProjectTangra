@@ -25,6 +25,7 @@
     <ClCompile Include="Device.cpp" />
     <ClCompile Include="EntryPoint.cpp" />
     <ClCompile Include="IndexBuffer.cpp" />
+    <ClCompile Include="ModelLoader.cpp" />
     <ClCompile Include="PipelineState.cpp" />
     <ClCompile Include="RenderResource.cpp" />
     <ClCompile Include="ResourceStateTracker.cpp" />
@@ -41,6 +42,8 @@
     <ClInclude Include="Device.h" />
     <ClInclude Include="Helpers.h" />
     <ClInclude Include="IndexBuffer.h" />
+    <ClInclude Include="Mesh.h" />
+    <ClInclude Include="ModelLoader.h" />
     <ClInclude Include="PipelineState.h" />
     <ClInclude Include="RenderResource.h" />
     <ClInclude Include="ResourceStateTracker.h" />
@@ -154,7 +157,7 @@
       <SDLCheck>true</SDLCheck>
       <ConformanceMode>true</ConformanceMode>
       <TreatWarningAsError>true</TreatWarningAsError>
-      <AdditionalIncludeDirectories>$(SolutionDir)\Dependencies\DirectXTex\Inc;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)\Dependencies\nlohman-json;$(SolutionDir)\Dependencies\FXGLTF;$(SolutionDir)\Dependencies\DirectXTex\Inc;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <LanguageStandard>stdcpp14</LanguageStandard>
     </ClCompile>
@@ -187,7 +190,7 @@
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>$(SolutionDir)\Dependencies\DirectXTex\Inc;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)\Dependencies\nlohman-json;$(SolutionDir)\Dependencies\FXGLTF;$(SolutionDir)\Dependencies\DirectXTex\Inc;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <TreatWarningAsError>true</TreatWarningAsError>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <LanguageStandard>stdcpp14</LanguageStandard>
