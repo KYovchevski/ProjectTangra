@@ -26,17 +26,20 @@ VS_OUT main(VS_IN input)
 {
     VS_OUT vout;
     
-    
+    matrix totalTransform = { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f };
     float4 totalPos = float4(0.0f, 0.0f, 0.0f, 0.0f);
+    
     
     for (uint i = 0; i < 4; ++i)
     {
         float weight = input.weights[i];
-        matrix boneTransform = boneMatricesSB[input.jointID[i] - 2];
+        totalTransform += boneMatricesSB[input.jointID[i]] * weight;
         
-        float4 posePos = mul(boneTransform, float4(input.pos, 1.0f));
-        totalPos += posePos * weight;
+        //float4 posePos = mul(boneTransform, float4(input.pos, 1.0f));
+        //totalPos += posePos * weight;
     }
+    
+    totalPos = mul(totalTransform, float4(input.pos, 1.0f));
     
     vout.Position = mul(MatCB.MVP, totalPos);
     vout.TexCoords = input.tex;

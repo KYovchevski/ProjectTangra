@@ -19,15 +19,23 @@ struct Joint
 
     void UpdateJoints(const Matrix& a_ParentTransform)
     {
+        // Local Transform
         Matrix transform = Matrix::Identity;
 
-        transform *= Matrix::CreateFromQuaternion(rotation);
+        //if (name == "b_RightLeg01_019")
+        //{
+        //    //std::cout << "k" << std::endl;
+        //}
+
         transform *= Matrix::CreateScale(scale);
+        transform *= Matrix::CreateFromQuaternion(rotation);
         transform *= Matrix::CreateTranslation(pos);
+
+        // Parent Transform
         transform = transform * a_ParentTransform;
 
-
-        Transform = transform * inverseBindMatrix;
+        // Vertex transform
+        Transform = inverseBindMatrix * transform;
         for (auto& child : m_Children)
         {
             child.UpdateJoints(transform);
@@ -87,7 +95,11 @@ struct Skeleton
     {
         a_Anim, a_Timestamp;
         Matrix transform = Matrix::Identity;
-        //m_RootJoint->pos = Vector3(200.0f, 0.0f, 0.0f);
+
+
+        //std::cout << m_RootJoint->m_Children[0].m_Children[0].m_Children[2].name << std::endl;
+        m_RootJoint->m_Children[0].m_Children[0].m_Children[2].pos = Vector3(0.0f, 0.0f, -10.0f);
+        //m_RootJoint->rotation = Quaternion::CreateFromYawPitchRoll(0.0f, DirectX::XMConvertToRadians(10.0f), 0.0f);
         m_RootJoint->UpdateJoints(transform);
     }
 

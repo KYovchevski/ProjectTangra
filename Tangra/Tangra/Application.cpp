@@ -516,27 +516,31 @@ void Application::Render()
     
 
     static float f = 0.0f;
-    f += 3.0f;
+    f += 3.0f / 10.0f;
 
     mat = sm::Matrix::Identity;
 
     //mat *= sm::Matrix::CreateRotationZ(DirectX::XMConvertToRadians(f));
+    float sc = 3.0f;
+    mat *= sm::Matrix::CreateScale(sm::Vector3(sc, sc, sc));
     mat *= sm::Matrix::CreateRotationY(DirectX::XMConvertToRadians(f));
-    mat *= sm::Matrix::CreateScale(sm::Vector3(03.0f));
-    mat *= sm::Matrix::CreateTranslation(sm::Vector3(0.0f, -250.0f, 10000.0f));
+    mat *= sm::Matrix::CreateTranslation(sm::Vector3(0.0f, -0.0f, 2000.0f));
+    //mat *= sm::Matrix::CreateLookAt(Vector3(0.0f, 0.0f, 0.0f), Vector3(0.0f, 0.0f, -1.0f), Vector3(0.0f, 1.0f, 0.0f));
     mat *= sm::Matrix::CreateOrthographic(float(m_ScreenWidth), float(m_ScreenHeight), 0.00001f, 100000.0f);
-
-    struct vertex
-    {
-        DirectX::XMFLOAT3 p;
-        DirectX::XMFLOAT2 t;
-    };
-
 
     Animation anim;
 
     m_FoxMesh->m_Skeleton.UpdateSkeleton(anim, 0.0f);
     auto skeletonMatrices = m_FoxMesh->m_Skeleton.GetMatrices();
+
+    for (auto& joint : m_FoxMesh->m_Skeleton.m_Joints)
+    {
+        auto transl = joint->Transform.Translation();
+        auto quat = joint->rotation;
+
+        std::printf("%s %f %f %f %f | %f %f %f %f \n", joint->name.c_str(), transl.x, transl.y, transl.z, transl.Length(), quat.x, quat.y, quat.z, quat.w);
+        
+    }
 
     commandList->SetRoot32BitConstant(0, mat);
     commandList->SetStructuredBuffer(2, skeletonMatrices);
