@@ -30,6 +30,26 @@ uint8_t GetNumberComponents(fg::Accessor& a_Accessor)
         return 0;
     }
 }
+
+size_t GetComponentSize(fg::Accessor a_Accessor)
+{
+    switch (a_Accessor.componentType)
+    {
+    case fx::gltf::Accessor::ComponentType::Byte:
+    case fx::gltf::Accessor::ComponentType::UnsignedByte:
+        return 1;
+    case fx::gltf::Accessor::ComponentType::Short:
+    case fx::gltf::Accessor::ComponentType::UnsignedShort:
+        return 2;
+    case fx::gltf::Accessor::ComponentType::UnsignedInt:
+    case fx::gltf::Accessor::ComponentType::Float:
+        return 4;
+    default:
+        std::cout << "ERROR: Unknown attribute type, cannot load model" << std::endl;
+        return 0;
+    }
+}
+
 struct BufferSegment
 {
     BufferSegment(){};
@@ -37,110 +57,30 @@ struct BufferSegment
         : buffer(a_Buffer)
         , offset(a_View.byteOffset + a_Accessor.byteOffset)
         , stride(a_View.byteStride)
-        , componentNumber(GetNumberComponents(a_Accessor))
+        , componentSize(GetComponentSize(a_Accessor))
+        , numComponents(GetNumberComponents(a_Accessor))
         , count(a_Accessor.count)
     {}
     fg::Buffer buffer;
     uint32_t offset;
     uint32_t stride;
-    uint8_t componentNumber;
+    size_t componentSize;
+    uint8_t numComponents;
     uint32_t count;
 };
 
 
-struct Joint
-{
-    UINT id;
-    std::string name;
-    Vector3 pos;
-    Quaternion rotation;
-    Vector3 scale;
-};
-
-struct Skeleton
-{
-    std::vector<Joint> m_Joints;
-    std::vector<uint32_t> m_JointIDs;
-
-    uint32_t m_RootJoint;
-};
-
-enum ETransformation
-{
-    Translate = 0,
-    Rotate = 1,
-    Scale = 2
-};
-
-struct AnimationTransformation
-{
-    AnimationTransformation(){
-        m_DeltaRotation = Quaternion::Identity;
-    }
-    uint32_t m_TargetJoint;
-    ETransformation m_Transformation;
-
-    union
-    {
-        Vector3 m_DeltaPosition;
-        Quaternion m_DeltaRotation;
-        Vector3 m_DeltaScale;
-    };
-};
-
-struct Keyframe
-{
-    float m_Time;
-    std::vector<AnimationTransformation> m_AffectedJoints;
-};
-
-struct Animation
-{
-    std::string m_Name;
-    std::vector<Keyframe> m_Keyframes;
-};
-
-Skeleton CreateSkeleton(fg::Document a_Doc, uint32_t a_SkinID)
-{
-    auto skin = a_Doc.skins[a_SkinID];
-
-    Skeleton skeleton;
-    skeleton.m_RootJoint = skin.skeleton;
-
-    for (auto j : skin.joints)
-    {
-        auto node = a_Doc.nodes[j];
-
-        skeleton.m_Joints.emplace_back();
-        Joint& joint = skeleton.m_Joints.back();
-
-        joint.id = j;
-        joint.name = node.name;
-        joint.pos = Vector3(node.translation[0], node.translation[1], node.translation[2]);
-        joint.rotation = Quaternion(node.rotation[0], node.rotation[1], node.rotation[2], node.rotation[3]);
-        joint.scale = Vector3(node.scale[0], node.scale[1], node.scale[2]);
-    }
-
-    std::sort(skeleton.m_Joints.begin(), skeleton.m_Joints.end(), [](Joint& a_Left, Joint& a_Right) {return a_Left.id < a_Right.id; });
-
-    for (Joint& j : skeleton.m_Joints)
-    {
-        skeleton.m_JointIDs.push_back(j.id);
-    }
-
-    return skeleton;
-}
-
 template<typename T>
-std::vector<T> ParseBytes(BufferSegment& a_Buffer)
+std::vector<T> ParseBytes(BufferSegment& a_Buffer, uint8_t a_NumComponentsForce = 1)
 {
+    a_NumComponentsForce;
     uint32_t inBufferOffset = a_Buffer.offset;
 
     std::vector<T> parsedBuffer;
 
     for (uint32_t i = 0; i < a_Buffer.count; ++i)
     {
-        for (uint8_t component = 0; component < a_Buffer.componentNumber; component++)
+        for (uint8_t component = 0; component < a_Buffer.componentSize * a_Buffer.numComponents / sizeof(T); component++)
         {
             union
             {
@@ -156,7 +96,6 @@ std::vector<T> ParseBytes(BufferSegment& a_Buffer)
         }
         inBufferOffset += a_Buffer.stride;
     }
-    a_Buffer.buffer.data[a_Buffer.offset];
 
     return parsedBuffer;
 }
@@ -169,6 +108,56 @@ BufferSegment GetSegmentFromAccessor(fg::Document& a_Doc, size_t a_AccessorID)
 
     auto out = BufferSegment(buffer, bufferView, accessor);
     return out;
+}
+
+
+
+Joint ConstructJoints(fg::Document a_Doc, uint32_t a_ParentJoint)
+{
+    auto node = a_Doc.nodes[a_ParentJoint];
+
+    Joint joint;
+
+    for (auto child : node.children)
+    {
+        joint.m_Children.push_back(ConstructJoints(a_Doc, child));
+    }
+
+    joint.id = a_ParentJoint;
+    joint.name = node.name;
+    joint.pos = Vector3(node.translation[0], node.translation[1], node.translation[2]);
+    joint.rotation = Quaternion(node.rotation[0], node.rotation[1], node.rotation[2], node.rotation[3]);
+    joint.scale = Vector3(node.scale[0], node.scale[1], node.scale[2]);
+
+    return joint;
+}
+
+
+Skeleton CreateSkeleton(fg::Document a_Doc, uint32_t a_SkinID)
+{
+    auto skin = a_Doc.skins[a_SkinID];
+
+    auto segment = GetSegmentFromAccessor(a_Doc, skin.inverseBindMatrices);
+    auto IBM = ParseBytes<DirectX::XMMATRIX>(segment);
+    int IBMIndexCounter = 0;
+
+    Skeleton skeleton;
+    skeleton.m_RootJoint = std::make_unique<Joint>(ConstructJoints(a_Doc, skin.skeleton));
+
+    skeleton.m_RootJoint->CollectJoints(skeleton.m_Joints);
+
+    for (auto j : skeleton.m_Joints)
+    {       
+        // because why fucking not
+        j->inverseBindMatrix = Matrix(IBM[IBMIndexCounter]);
+        IBMIndexCounter ++;
+    }
+
+    // is this needed? need to test with more samples, mainly from artists to know how maya does the exporting
+    std::sort(skeleton.m_Joints.begin(), skeleton.m_Joints.end(), [](Joint*& a_Left, Joint*& a_Right) {return a_Left->id < a_Right->id; });
+
+
+    return skeleton;
 }
 
 Animation GetAnimation(fg::Document a_Doc, int a_AnimID)
@@ -236,7 +225,7 @@ Animation GetAnimation(fg::Document a_Doc, int a_AnimID)
 
     for (auto& channelBuffer : channelBuffers)
     {
-        auto parsed = ParseBytes<float>(channelBuffer.bufferSegment);
+        auto parsed = ParseBytes<float>(channelBuffer.bufferSegment, channelBuffer.bufferSegment.numComponents);
 
         for (size_t i = 0; i < channelBuffer.bufferSegment.count; i++)
         {
@@ -270,68 +259,49 @@ Mesh& ModelLoader::LoadMeshFromGLTF(std::string a_FilePath)
 
     auto mesh = doc.meshes[0];
 
-    doc.skins[0].skeleton; // ID of root bone's node
 
-    doc.animations[0].channels[0].target.node; // ID of bone (node)
-    doc.animations[0].channels[0].target.path; // transform type
-    doc.animations[0].channels[0].sampler; // ID of sampler
 
-    doc.accessors[doc.animations[0].samplers[0].input]; // timestamps accessor
-    doc.accessors[doc.animations[0].samplers[0].output]; // actual transformation access
 
-    auto timestampsSegment = GetSegmentFromAccessor(doc, doc.animations[0].samplers[0].input);
+    m_LoadedMeshes.emplace(a_FilePath, Mesh());
 
-    auto timestamps = ParseBytes<float>(timestampsSegment);
-    auto transformationsSegment = GetSegmentFromAccessor(doc, doc.animations[0].samplers[0].output);
-
-    auto transformations = ParseBytes<float>(transformationsSegment);
-
-    auto skele = CreateSkeleton(doc, 0);
-
-    auto skin = doc.skins[0];
-
+    Mesh& m = m_LoadedMeshes[a_FilePath];
+    m.m_Skeleton = CreateSkeleton(doc, 0);
     auto anim = GetAnimation(doc, 0);
+    m.m_Skeleton.UpdateSkeleton(anim, 0.0f);
 
-    std::vector<Joint> joints;
-
-    for (auto j : skin.joints)
-    {
-        auto node = doc.nodes[j];        
-
-        joints.emplace_back();
-        joints.back().id = j;
-        joints.back().name = node.name;
-        joints.back().pos = Vector3(node.translation[0], node.translation[1], node.translation[2]);
-        joints.back().rotation = Quaternion(node.rotation[0], node.rotation[1], node.rotation[2], node.rotation[3]);
-        joints.back().scale = Vector3(node.scale[0], node.scale[1], node.scale[2]);
-    }
-
-    std::vector<float> positions, texCoords, weights;
-    std::vector<unsigned short int> jointIDs;
+    std::vector<DirectX::XMFLOAT3> positions;
+    std::vector<DirectX::XMFLOAT2> texCoords;
+    std::vector<DirectX::XMFLOAT4> weights;
+    std::vector<DirectX::XMUINT4> jointIDs;
     
     for (auto primitive : mesh.primitives)
-    {        
+    {
         for (auto& attrib : primitive.attributes)
         {
             if (attrib.first == "POSITION")
             {
                 BufferSegment segment = GetSegmentFromAccessor(doc, attrib.second);                
-                positions = ParseBytes<float>(segment);
+                positions = ParseBytes<DirectX::XMFLOAT3>(segment);
             }
             else if (attrib.first == "TEXCOORD_0")
             {
                 BufferSegment segment = GetSegmentFromAccessor(doc, attrib.second);
-                texCoords = ParseBytes<float>(segment);
+                texCoords = ParseBytes<DirectX::XMFLOAT2>(segment);
             }
             else if (attrib.first == "JOINTS_0")
             {
                 BufferSegment segment = GetSegmentFromAccessor(doc, attrib.second);
-                jointIDs = ParseBytes<unsigned short int>(segment);
+                auto jointIDsUshort = ParseBytes<unsigned short int>(segment);
+
+                for (size_t i = 0; i < jointIDsUshort.size(); i += 4)
+                {
+                    jointIDs.emplace_back(jointIDsUshort[i + 0], jointIDsUshort[i + 1], jointIDsUshort[i + 2], jointIDsUshort[i + 3]);
+                }
             }
             else if (attrib.first == "WEIGHTS_0")
             {
                 BufferSegment segment = GetSegmentFromAccessor(doc, attrib.second);
-                weights = ParseBytes<float>(segment);
+                weights = ParseBytes<DirectX::XMFLOAT4>(segment);
             }
         }
     }
@@ -342,29 +312,18 @@ Mesh& ModelLoader::LoadMeshFromGLTF(std::string a_FilePath)
         DirectX::XMFLOAT2 tex;
     };
 
-    std::vector<vertex> interleaved;
 
-    for (size_t i = 0; i < positions.size() / 3; i++)
-    {
-        interleaved.emplace_back();
-        interleaved.back().pos.x = positions[i * 3 + 0];
-        interleaved.back().pos.y = positions[i * 3 + 1];
-        interleaved.back().pos.z = positions[i * 3 + 2];
-
-        interleaved.back().tex.x = texCoords[i * 2 + 0];
-        interleaved.back().tex.y = texCoords[i * 2 + 1];
-
-    }
 
     auto copyCommandQueue = m_Services->m_Device->GetCommandQueue();
     auto copyCommandList = copyCommandQueue->GetCommandList();
 
-    Mesh m;
-    
-    m.m_VertexBuffer = copyCommandList->CreateVertexBuffer(interleaved);
+    m.m_Positions = copyCommandList->CreateVertexBuffer(positions);
+    m.m_TexCoords = copyCommandList->CreateVertexBuffer(texCoords);
+    m.m_JointIDs = copyCommandList->CreateVertexBuffer(jointIDs);
+    m.m_Weights = copyCommandList->CreateVertexBuffer(weights);
+
 
     copyCommandQueue->ExecuteCommandList(*copyCommandList);
 
-    m_LoadedMeshes.emplace(a_FilePath, m);
-    return m_LoadedMeshes[a_FilePath];
+    return m;
 }

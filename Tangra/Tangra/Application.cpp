@@ -208,6 +208,10 @@ void Application::Initialize(InitInfo& a_InitInfo)
     g_ServiceLocator.m_ModelLoader = std::make_unique<ModelLoader>(g_ServiceLocator);
 
     m_FoxMesh = &g_ServiceLocator.m_ModelLoader->LoadMeshFromGLTF("Models/Fox/glTF/Fox.gltf");
+    //m_FoxMesh = &g_ServiceLocator.m_ModelLoader->LoadMeshFromGLTF("Models/RiggedSimple/glTF/RiggedSimple.gltf");
+    //m_FoxMesh = &g_ServiceLocator.m_ModelLoader->LoadMeshFromGLTF("Models/Fox/glTF/Fox.gltf");
+    //m_FoxMesh = &g_ServiceLocator.m_ModelLoader->LoadMeshFromGLTF("Models/Fox/glTF/Fox.gltf");
+    //m_FoxMesh = &g_ServiceLocator.m_ModelLoader->LoadMeshFromGLTF("Models/Fox/glTF/Fox.gltf");
 
     std::cout << "Initialization completed." << std::endl;
     ::ShowWindow(m_HWND, SW_SHOW);
@@ -435,11 +439,35 @@ void Application::LoadPSOs()
 
     *backElement = {};
     backElement->Format = DXGI_FORMAT_R32G32_FLOAT;
-    backElement->AlignedByteOffset = 3 * sizeof(float);
-    backElement->InputSlot = 0;
+    backElement->AlignedByteOffset = 0;
+    backElement->InputSlot = 1;
     backElement->SemanticIndex = 0;
     backElement->InputSlotClass = D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA;
     backElement->SemanticName = "TEXCOORD";
+    backElement->InstanceDataStepRate = 0;
+
+    initData.m_InputElements.emplace_back();
+    backElement = &initData.m_InputElements.back();
+
+    *backElement = {};
+    backElement->Format = DXGI_FORMAT_R32G32B32A32_UINT;
+    backElement->AlignedByteOffset = 0;
+    backElement->InputSlot = 2;
+    backElement->SemanticIndex = 0;
+    backElement->InputSlotClass = D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA;
+    backElement->SemanticName = "JOINT_IDS";
+    backElement->InstanceDataStepRate = 0;
+
+    initData.m_InputElements.emplace_back();
+    backElement = &initData.m_InputElements.back();
+
+    *backElement = {};
+    backElement->Format = DXGI_FORMAT_R32G32B32A32_FLOAT;
+    backElement->AlignedByteOffset = 0;
+    backElement->InputSlot = 3;
+    backElement->SemanticIndex = 0;
+    backElement->InputSlotClass = D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA;
+    backElement->SemanticName = "WEIGHTS";
     backElement->InstanceDataStepRate = 0;
 
 
@@ -472,7 +500,10 @@ void Application::Render()
     commandList->SetViewport(m_Viewport);
     commandList->SetScissorRect(m_ScissorRect);
     commandList->SetRenderTargets(std::vector<D3D12_CPU_DESCRIPTOR_HANDLE>{g_ServiceLocator.m_SwapChain->GetCurrentRTVHandle()}, TRUE, g_ServiceLocator.m_SwapChain->GetDSVHandle());
-    commandList->SetVertexBuffer(m_FoxMesh->m_VertexBuffer);
+    commandList->SetVertexBuffer(m_FoxMesh->m_Positions, 0);
+    commandList->SetVertexBuffer(m_FoxMesh->m_TexCoords, 1);
+    commandList->SetVertexBuffer(m_FoxMesh->m_JointIDs, 2);
+    commandList->SetVertexBuffer(m_FoxMesh->m_Weights, 3);
     //commandList->SetIndexBuffer(m_IndexBuffer);
     commandList->SetDescriptorHeap(srvHeap);
     commandList->SetTexture(1, m_Texture);
@@ -501,19 +532,18 @@ void Application::Render()
         DirectX::XMFLOAT2 t;
     };
 
-    vertex v1, v2, v3;
-    v1 = vertex{ DirectX::XMFLOAT3(0.5f, 0.5f, 0.5f), DirectX::XMFLOAT2(0.0f, 0.0f) };
-    v2 = vertex{ DirectX::XMFLOAT3(-0.5f, -0.5f, 0.5f), DirectX::XMFLOAT2(1.0f, 1.0f) };
-    v3 = vertex{ DirectX::XMFLOAT3(-0.5f, 0.5f, 0.5f) , DirectX::XMFLOAT2(1.0f, 0.0f) };
 
-    std::vector<vertex> vertices = { v1, v2, v3 };
+    Animation anim;
+
+    m_FoxMesh->m_Skeleton.UpdateSkeleton(anim, 0.0f);
+    auto skeletonMatrices = m_FoxMesh->m_Skeleton.GetMatrices();
 
     commandList->SetRoot32BitConstant(0, mat);
-    commandList->SetStructuredBuffer(2, vertices);
+    commandList->SetStructuredBuffer(2, skeletonMatrices);
     //commandList->GetCommandListPtr()->SetGraphicsRoot32BitConstants(0, sizeof(mat) / 4, &mat, 0);
     
     //commandList->DrawIndexed(m_IndexBuffer.GetNumIndices());
-    commandList->Draw(m_FoxMesh->m_VertexBuffer.GetNumVertices());
+    commandList->Draw(m_FoxMesh->m_Positions.GetNumVertices());
     directCommandQueue->ExecuteCommandList(*commandList);
 
     g_ServiceLocator.m_SwapChain->Present();

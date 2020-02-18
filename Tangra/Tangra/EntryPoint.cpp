@@ -8,6 +8,23 @@
 using namespace DirectX;
 
 namespace fs = std::experimental::filesystem;
+
+int main()
+{
+
+    Application::InitInfo appInitInfo;
+    appInitInfo.m_NumBuffers = 3;
+    appInitInfo.m_CreateDebugConsole = true;
+    appInitInfo.m_Height = 800;
+    appInitInfo.m_Width = 800;
+    appInitInfo.m_WindowTitle = L"Tongra cause retarded";
+    Application::Create(appInitInfo);
+
+    Application::Run();
+
+    return 0;
+}
+
 int CALLBACK wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _In_ PWSTR lpCmdLine, _In_ int nCmdShow)
 {
     hPrevInstance;
