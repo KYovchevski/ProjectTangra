@@ -508,39 +508,44 @@ void Application::Render()
     commandList->SetDescriptorHeap(srvHeap);
     commandList->SetTexture(1, m_Texture);
 
-    namespace sm = DirectX::SimpleMath;
 
     namespace dx = DirectX;
 
-    sm::Matrix mat;
     
 
-    static float f = 0.0f;
-    f += 3.0f / 10.0f;
-
-    mat = sm::Matrix::Identity;
+    static float f = 0.0f, f1 = 130.0f;
+    f += 3.0f / 1.0f;
+    //f1 += 3.0f / 10.0f;
 
     //mat *= sm::Matrix::CreateRotationZ(DirectX::XMConvertToRadians(f));
-    float sc = 3.0f;
-    mat *= sm::Matrix::CreateScale(sm::Vector3(sc, sc, sc));
-    mat *= sm::Matrix::CreateRotationY(DirectX::XMConvertToRadians(f));
-    mat *= sm::Matrix::CreateTranslation(sm::Vector3(0.0f, -0.0f, 2000.0f));
-    //mat *= sm::Matrix::CreateLookAt(Vector3(0.0f, 0.0f, 0.0f), Vector3(0.0f, 0.0f, -1.0f), Vector3(0.0f, 1.0f, 0.0f));
-    mat *= sm::Matrix::CreateOrthographic(float(m_ScreenWidth), float(m_ScreenHeight), 0.00001f, 100000.0f);
+    // const float sc = 3.0f;
+    //mat *= sm::Matrix::CreateScale(sm::Vector3(sc, sc, sc));
+    //
+    namespace sm = DirectX::SimpleMath;
+
+    sm::Matrix mat;
+    mat = sm::Matrix::Identity;
+    mat *= sm::Matrix::CreateRotationY(DirectX::XMConvertToRadians(f1));
+    mat *= sm::Matrix::CreateTranslation(sm::Vector3(0.0f, 50.0f, 250.0f));
+    mat *= sm::Matrix::CreateLookAt(Vector3(0.0f, 250.0f, -50.0f), Vector3(0.0f, 100.0f, 250.0f), Vector3(0.0f, 1.0f, 0.0f));
+    //mat *= sm::Matrix::CreateOrthographic(float(m_ScreenWidth), float(m_ScreenHeight), 0.00001f, 100000.0f);
+    mat *= sm::Matrix::CreatePerspectiveFieldOfView(DirectX::XMConvertToRadians(45.0f), float(m_ScreenWidth) / float(m_ScreenHeight), 0.01f, 10000.0f);// .Transpose();
 
     Animation anim;
 
     m_FoxMesh->m_Skeleton.UpdateSkeleton(anim, 0.0f);
-    auto skeletonMatrices = m_FoxMesh->m_Skeleton.GetMatrices();
+    std::vector<Matrix> skeletonMatrices = m_FoxMesh->m_Skeleton.GetMatrices();
 
     for (auto& joint : m_FoxMesh->m_Skeleton.m_Joints)
     {
         auto transl = joint->Transform.Translation();
         auto quat = joint->rotation;
 
-        std::printf("%s %f %f %f %f | %f %f %f %f \n", joint->name.c_str(), transl.x, transl.y, transl.z, transl.Length(), quat.x, quat.y, quat.z, quat.w);
-        
+        //std::printf("%s %f %f %f %f | %f %f %f %f \n", joint->name.c_str(), transl.x, transl.y, transl.z, transl.Length(), quat.x, quat.y, quat.z, quat.w);
     }
+
+    auto& quat = m_FoxMesh->m_Skeleton.m_RootJoint->m_Children[0].m_Children[0].m_Children[2].rotation;
+    quat = Quaternion::CreateFromYawPitchRoll(0.0f, 0.0f, DirectX::XMConvertToRadians(-f));
 
     commandList->SetRoot32BitConstant(0, mat);
     commandList->SetStructuredBuffer(2, skeletonMatrices);

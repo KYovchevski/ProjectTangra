@@ -98,7 +98,6 @@ struct Skeleton
 
 
         //std::cout << m_RootJoint->m_Children[0].m_Children[0].m_Children[2].name << std::endl;
-        m_RootJoint->m_Children[0].m_Children[0].m_Children[2].pos = Vector3(0.0f, 0.0f, -10.0f);
         //m_RootJoint->rotation = Quaternion::CreateFromYawPitchRoll(0.0f, DirectX::XMConvertToRadians(10.0f), 0.0f);
         m_RootJoint->UpdateJoints(transform);
     }
