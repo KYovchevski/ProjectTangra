@@ -163,96 +163,77 @@ Skeleton CreateSkeleton(fg::Document a_Doc, uint32_t a_SkinID)
 Animation GetAnimation(fg::Document a_Doc, int a_AnimID)
 {
     auto gltfAnim = a_Doc.animations[a_AnimID];
+    
+    Animation finalAnim;
+    finalAnim.m_Name = gltfAnim.name;
 
-    struct KeyframeGroup
+    std::map<size_t, size_t> alreadyLoadedTimestamps;
+    finalAnim.m_TimestampLists;
+
+    float length = 0.0f;
+
+    for (auto& ch : gltfAnim.channels)
     {
-        std::vector<AnimationTransformation> joints;
-        int timeStampsAccessor;
-    };
+        auto sampler = gltfAnim.samplers[ch.sampler];
 
-    std::vector<KeyframeGroup> groups;
-
-    struct JointTransformations
-    {
-        uint32_t joint;
-        ETransformation transformation;
-        BufferSegment bufferSegment;
-    };
-
-    std::vector<JointTransformations> channelBuffers;
-
-    // Group channels by timestamps they need to follow
-    // Each channel is responsible for a single joint/node
-    for (auto& channel : gltfAnim.channels)
-    {
-        auto sampler = gltfAnim.samplers[channel.sampler];
-        std::vector<KeyframeGroup>::iterator iter = std::find_if(groups.begin(), groups.end(), [&sampler](KeyframeGroup& a_Entry) {return a_Entry.timeStampsAccessor == sampler.input; });
-        if (iter == groups.end())
+        auto timestampAccessor = sampler.input;
         {
-            groups.emplace_back();
-            groups.back().timeStampsAccessor = sampler.input;
-            iter = groups.end() - 1;
+            if (std::find_if(alreadyLoadedTimestamps.begin(), alreadyLoadedTimestamps.end(),
+                [timestampAccessor](std::pair<size_t, size_t> a_Entry) {return a_Entry.first == timestampAccessor; }) == alreadyLoadedTimestamps.end())
+            {
+                alreadyLoadedTimestamps.emplace(timestampAccessor, finalAnim.m_TimestampLists.size());
+                auto segment = GetSegmentFromAccessor(a_Doc, timestampAccessor);
+                finalAnim.m_TimestampLists.push_back(ParseBytes<float>(segment));
+                length = std::fmax(length, finalAnim.m_TimestampLists.back().back());
+            }
         }
-        (*iter).joints.emplace_back();
-        (*iter).joints.back().m_TargetJoint = channel.target.node;
-        if (channel.target.path == "translation")
-            (*iter).joints.back().m_Transformation = Translate;
-        else if (channel.target.path == "rotation")
-            (*iter).joints.back().m_Transformation = Rotate;
-        else if (channel.target.path == "scale")
-            (*iter).joints.back().m_Transformation = Scale;
 
-        channelBuffers.emplace_back(); 
-        channelBuffers.back().transformation = (*iter).joints.back().m_Transformation;
-        channelBuffers.back().joint = channel.target.node;
-        channelBuffers.back().bufferSegment = GetSegmentFromAccessor(a_Doc, sampler.output);
-    }
-       
-    Animation anim;
-    anim.m_Name = gltfAnim.name;
-    for (KeyframeGroup& group : groups)
-    {
-        auto bufferSegment = GetSegmentFromAccessor(a_Doc, group.timeStampsAccessor);
-        auto timeStamps = ParseBytes<float>(bufferSegment);
+        finalAnim.m_Channels.emplace_back();
+        auto& animChannel = finalAnim.m_Channels.back();
 
-        for (float timeStamp : timeStamps)
+        animChannel.m_JointID = ch.target.node;
+        animChannel.m_Timestamps = &finalAnim.m_TimestampLists[alreadyLoadedTimestamps[timestampAccessor]];
+
+        if (ch.target.path == "translation")
+            animChannel.m_TransformationType = Translate;
+        else if (ch.target.path == "rotation")
+            animChannel.m_TransformationType = Rotate;
+        else if (ch.target.path == "scale")
+            animChannel.m_TransformationType = Scale;
+
+        if (sampler.interpolation == fx::gltf::Animation::Sampler::Type::Linear)
+            animChannel.m_InterpolationMethod = Linear;
+        else if (sampler.interpolation == fx::gltf::Animation::Sampler::Type::Step)
+            animChannel.m_InterpolationMethod = Step;
+        else if (sampler.interpolation == fx::gltf::Animation::Sampler::Type::CubicSpline)
+            animChannel.m_InterpolationMethod = CubicSpline;
+
+        auto transformationAccessor = sampler.output;
+        auto transformationsSegment = GetSegmentFromAccessor(a_Doc, transformationAccessor);
+        auto transformationFloats = ParseBytes<float>(transformationsSegment);
+
+        for (size_t i = 0; i < animChannel.m_Timestamps->size(); i++)
         {
-            anim.m_Keyframes.emplace_back();
-            anim.m_Keyframes.back().m_Time = timeStamp;
-            anim.m_Keyframes.back().m_AffectedJoints = group.joints;
-        }
-    }
-
-    for (auto& channelBuffer : channelBuffers)
-    {
-        auto parsed = ParseBytes<float>(channelBuffer.bufferSegment, channelBuffer.bufferSegment.numComponents);
-
-        for (size_t i = 0; i < channelBuffer.bufferSegment.count; i++)
-        {
-            Keyframe& keyframe = anim.m_Keyframes[i];
-            auto iter = std::find_if(keyframe.m_AffectedJoints.begin(), keyframe.m_AffectedJoints.end(), [&channelBuffer](AnimationTransformation& a_Entry)
-                {return a_Entry.m_TargetJoint == channelBuffer.joint && a_Entry.m_Transformation == channelBuffer.transformation; });
-
-            auto& transformation = *iter;
-
-            switch (transformation.m_Transformation)
+            animChannel.m_TransformationKeyframes.emplace_back();
+            auto& transformation = animChannel.m_TransformationKeyframes.back();
+            switch (animChannel.m_TransformationType)
             {
             case Translate:
             case Scale:
-                transformation.m_DeltaPosition = Vector3(parsed[i * 3 + 0], parsed[i * 3 + 1], parsed[i * 3 + 2]);
+                transformation.m_DeltaPosition = Vector3(&transformationFloats[i * 3]);
                 break;
             case Rotate:
-                transformation.m_DeltaRotation = Quaternion(parsed[i * 3 + 0], parsed[i * 3 + 1], parsed[i * 3 + 2], parsed[i * 3 + 3]);
-
+                transformation.m_DeltaRotation = Quaternion(&transformationFloats[i * 4]);
                 break;
             }
         }
 
     }
 
-    return anim;
-}
 
+    finalAnim.m_Length = length;
+    return finalAnim;
+}
 Mesh& ModelLoader::LoadMeshFromGLTF(std::string a_FilePath)
 {
     fg::Document doc = fg::LoadFromText(a_FilePath);
@@ -262,12 +243,12 @@ Mesh& ModelLoader::LoadMeshFromGLTF(std::string a_FilePath)
 
 
 
+
     m_LoadedMeshes.emplace(a_FilePath, Mesh());
 
     Mesh& m = m_LoadedMeshes[a_FilePath];
     m.m_Skeleton = CreateSkeleton(doc, 0);
-    auto anim = GetAnimation(doc, 0);
-    m.m_Skeleton.UpdateSkeleton(anim, 0.0f);
+    m.m_Animation = GetAnimation(doc, 2);
 
     std::vector<DirectX::XMFLOAT3> positions;
     std::vector<DirectX::XMFLOAT2> texCoords;

@@ -5,6 +5,7 @@
 #include "SimpleMath.h"
 
 using namespace DirectX::SimpleMath;
+struct Animation;
 
 struct Joint
 {
@@ -17,30 +18,7 @@ struct Joint
         }
     }
 
-    void UpdateJoints(const Matrix& a_ParentTransform)
-    {
-        // Local Transform
-        Matrix transform = Matrix::Identity;
-
-        //if (name == "b_RightLeg01_019")
-        //{
-        //    //std::cout << "k" << std::endl;
-        //}
-
-        transform *= Matrix::CreateScale(scale);
-        transform *= Matrix::CreateFromQuaternion(rotation);
-        transform *= Matrix::CreateTranslation(pos);
-
-        // Parent Transform
-        transform = transform * a_ParentTransform;
-
-        // Vertex transform
-        Transform = inverseBindMatrix * transform;
-        for (auto& child : m_Children)
-        {
-            child.UpdateJoints(transform);
-        }
-    }
+    void UpdateJoints(Animation& a_Animation, float a_Timestamp, const Matrix& a_ParentTransform = Matrix::Identity);
     UINT id;
     std::string name;
 
@@ -60,13 +38,19 @@ enum ETransformation
     Scale = 2
 };
 
+enum EInterpolationMethod
+{
+    Linear = 0,
+    Step = 1,
+    CubicSpline = 2
+};
+
 struct AnimationTransformation
 {
     AnimationTransformation() {
         m_DeltaRotation = Quaternion::Identity;
     }
     uint32_t m_TargetJoint;
-    ETransformation m_Transformation;
 
     union
     {
@@ -76,16 +60,26 @@ struct AnimationTransformation
     };
 };
 
-struct Keyframe
+struct Channel
 {
-    float m_Time;
-    std::vector<AnimationTransformation> m_AffectedJoints;
+
+    AnimationTransformation GetInterpolatedTransformAtTimestamp(float a_Timestamp);
+
+    uint32_t m_JointID;
+    std::vector<float>* m_Timestamps;
+    std::vector<AnimationTransformation> m_TransformationKeyframes;
+    ETransformation m_TransformationType;
+    EInterpolationMethod m_InterpolationMethod;
 };
 
 struct Animation
 {
     std::string m_Name;
-    std::vector<Keyframe> m_Keyframes;
+    float m_Length;
+
+    std::vector<std::vector<float>> m_TimestampLists;
+
+    std::vector<Channel> m_Channels;
 };
 
 
@@ -95,11 +89,8 @@ struct Skeleton
     {
         a_Anim, a_Timestamp;
         Matrix transform = Matrix::Identity;
-
-
-        //std::cout << m_RootJoint->m_Children[0].m_Children[0].m_Children[2].name << std::endl;
-        //m_RootJoint->rotation = Quaternion::CreateFromYawPitchRoll(0.0f, DirectX::XMConvertToRadians(10.0f), 0.0f);
-        m_RootJoint->UpdateJoints(transform);
+        
+        m_RootJoint->UpdateJoints(a_Anim, a_Timestamp, transform);
     }
 
     std::vector<DirectX::SimpleMath::Matrix> GetMatrices()
@@ -131,4 +122,88 @@ struct Mesh
     Texture m_Texture;
 
     Skeleton m_Skeleton;
+    Animation m_Animation;
 };
+
+inline void Joint::UpdateJoints(Animation& a_Animation, float a_Timestamp, const Matrix& a_ParentTransform)
+{
+
+    // Local Transform
+    Matrix transform = Matrix::Identity;
+
+    std::vector<Channel*> affectingChannels;
+    for (auto& channel : a_Animation.m_Channels)
+    {
+        if (channel.m_JointID == id)
+        {
+            affectingChannels.push_back(&channel);
+        }
+    }
+
+    for (Channel* affectingChannel : affectingChannels)
+    {
+        auto interpolated = affectingChannel->GetInterpolatedTransformAtTimestamp(a_Timestamp);
+
+        switch (affectingChannel->m_TransformationType)
+        {
+        case Translate:
+            pos = interpolated.m_DeltaPosition;
+            break;
+        case Rotate:
+            rotation = interpolated.m_DeltaRotation;
+            break;
+        case Scale:
+            scale = interpolated.m_DeltaScale;
+            break;
+        }
+    }
+
+    transform *= Matrix::CreateScale(scale);
+    transform *= Matrix::CreateFromQuaternion(rotation);
+    transform *= Matrix::CreateTranslation(pos);
+
+    // Parent Transform
+    transform = transform * a_ParentTransform;
+
+    // Vertex transform
+    Transform = inverseBindMatrix * transform;
+    for (auto& child : m_Children)
+    {
+        child.UpdateJoints(a_Animation, a_Timestamp, transform);
+    }
+
+}
+
+inline AnimationTransformation Channel::GetInterpolatedTransformAtTimestamp(float a_Timestamp)
+{
+    for (size_t i = 0; i < m_Timestamps->size(); i++)
+    {
+        float before = (*m_Timestamps)[i];
+        float after = (*m_Timestamps)[(i + 1) % m_Timestamps->size()];
+
+        if (before <= a_Timestamp && after > a_Timestamp)
+        {
+            float alpha = (a_Timestamp - before) / (after - before);
+
+            AnimationTransformation output;
+
+            switch (m_TransformationType)
+            {
+            case Translate:
+                output.m_DeltaPosition = Vector3::Lerp(m_TransformationKeyframes[i].m_DeltaPosition,
+                    m_TransformationKeyframes[(i + 1) % m_Timestamps->size()].m_DeltaPosition, alpha);
+                return output;
+            case Rotate:
+                output.m_DeltaRotation = Quaternion::Slerp(m_TransformationKeyframes[i].m_DeltaRotation,
+                    m_TransformationKeyframes[(i + 1) % m_Timestamps->size()].m_DeltaRotation, alpha);
+                return output;
+            case Scale:
+                output.m_DeltaScale = Vector3::Lerp(m_TransformationKeyframes[i].m_DeltaScale,
+                    m_TransformationKeyframes[(i + 1) % m_Timestamps->size()].m_DeltaScale, alpha);
+                return output;
+            }
+
+        }
+    }
+    return AnimationTransformation();
+}

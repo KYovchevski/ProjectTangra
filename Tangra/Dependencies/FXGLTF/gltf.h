@@ -444,9 +444,9 @@ namespace gltf
         {
             enum class Type
             {
-                Linear,
-                Step,
-                CubicSpline
+                Linear = 0,
+                Step = 1,
+                CubicSpline = 2
             };
 
             int32_t input{ -1 };

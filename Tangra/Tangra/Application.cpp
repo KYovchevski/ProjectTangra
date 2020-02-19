@@ -531,9 +531,14 @@ void Application::Render()
     //mat *= sm::Matrix::CreateOrthographic(float(m_ScreenWidth), float(m_ScreenHeight), 0.00001f, 100000.0f);
     mat *= sm::Matrix::CreatePerspectiveFieldOfView(DirectX::XMConvertToRadians(45.0f), float(m_ScreenWidth) / float(m_ScreenHeight), 0.01f, 10000.0f);// .Transpose();
 
-    Animation anim;
+    static float time = 0.0f;
+    time += 1.0f / 60.0f;
+    if (time > m_FoxMesh->m_Animation.m_Length)
+    {
+        time -= m_FoxMesh->m_Animation.m_Length;
+    }
 
-    m_FoxMesh->m_Skeleton.UpdateSkeleton(anim, 0.0f);
+    m_FoxMesh->m_Skeleton.UpdateSkeleton(m_FoxMesh->m_Animation, time);
     std::vector<Matrix> skeletonMatrices = m_FoxMesh->m_Skeleton.GetMatrices();
 
     for (auto& joint : m_FoxMesh->m_Skeleton.m_Joints)
